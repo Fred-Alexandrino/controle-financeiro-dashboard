@@ -1,4 +1,4 @@
-const CACHE_NAME = 'caderneta-v2';
+const CACHE_NAME = 'caderneta-v3';
 const SHELL_FILES = ['./manifest.json', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', (e) => {
@@ -15,14 +15,13 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
-  // nunca cacheia chamadas de dados (Google Sheets / Apps Script) — sempre busca fresco
   if (url.hostname.includes('google.com') || url.hostname.includes('script.google')) {
     return;
   }
-  // HTML sempre busca da rede primeiro (garante que atualizações do dashboard cheguem sem precisar reinstalar)
+  // HTML: sempre busca da rede, ignorando qualquer cache HTTP (do navegador ou do CDN)
   if (e.request.mode === 'navigate' || url.pathname.endsWith('.html') || url.pathname === '/' || url.pathname.endsWith('/')) {
     e.respondWith(
-      fetch(e.request).then((res) => {
+      fetch(e.request, { cache: 'no-store' }).then((res) => {
         caches.open(CACHE_NAME).then((cache) => cache.put(e.request, res.clone()));
         return res;
       }).catch(() => caches.match(e.request))
@@ -32,7 +31,7 @@ self.addEventListener('fetch', (e) => {
   // demais arquivos: cache primeiro, com atualização em segundo plano
   e.respondWith(
     caches.match(e.request).then((cached) => {
-      const fetchPromise = fetch(e.request).then((res) => {
+      const fetchPromise = fetch(e.request, { cache: 'no-store' }).then((res) => {
         caches.open(CACHE_NAME).then((cache) => cache.put(e.request, res.clone()));
         return res;
       }).catch(() => cached);
