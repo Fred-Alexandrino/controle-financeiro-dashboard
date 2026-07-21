@@ -1321,6 +1321,9 @@ async function tryFetchDashboard(){
     }
   }
   if(!cards.length) throw new Error('resumo por cartao nao encontrado');
+  if(kpis.totalPagarCartoes<=0 && kpis.gastoFixoMensal<=0 && kpis.desembolsoTotal<=0) throw new Error('KPIs zerados — mantendo dados anteriores');
+  const cardsSoma = cards.reduce((s,c)=>s+c.fatura+c.totalPagar+c.emAberto,0);
+  if(cardsSoma<=0) throw new Error('resumo por cartao zerado — mantendo dados anteriores');
   return { kpisGerais:kpis, cardsSummary:cards };
 }
 
@@ -1340,6 +1343,10 @@ async function tryFetchPainel(){
     }
   }
   if(proj.length<12) throw new Error('projecao incompleta');
+  const somaTotal = proj.reduce((s,r)=>s+r.fixos+r.fred+r.janyne, 0);
+  if(somaTotal <= 0) throw new Error('projecao com valores zerados — mantendo dados anteriores');
+  const linhaQuebrada = proj.some(r=> !isFinite(r.fixos) || !isFinite(r.fred) || !isFinite(r.janyne));
+  if(linhaQuebrada) throw new Error('projecao com valores inválidos — mantendo dados anteriores');
   const cats = [];
   let catHeaderIdx=-1;
   rows.forEach((r,idx)=>{ if(rowTexts(r).includes('Categoria')) catHeaderIdx=idx; });
@@ -1369,6 +1376,7 @@ async function tryFetchFixos(){
     list.push({despesa:texts[0], valor:n(texts[1])});
   }
   if(!list.length) throw new Error('gastos fixos nao encontrado');
+  if(list.reduce((s,x)=>s+x.valor,0) <= 0) throw new Error('gastos fixos zerados — mantendo dados anteriores');
   return list;
 }
 
