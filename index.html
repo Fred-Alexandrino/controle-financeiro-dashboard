@@ -1465,6 +1465,11 @@ function initDragReorder(){
   });
 }
 
+const AUTOSCROLL_EDGE = 90;
+const AUTOSCROLL_MAX_SPEED = 16;
+let autoScrollRAF = null;
+let lastPointerY = 0;
+
 function onSectionDragStart(e){
   e.preventDefault();
   const sec = e.currentTarget.closest('.dashboard-section');
@@ -1484,14 +1489,16 @@ function onSectionDragStart(e){
   sec.style.pointerEvents = 'none';
 
   dragCtx = { sec, placeholder, offsetY: e.clientY - rect.top };
+  lastPointerY = e.clientY;
   document.addEventListener('pointermove', onSectionDragMove);
   document.addEventListener('pointerup', onSectionDragEnd);
+  autoScrollRAF = requestAnimationFrame(autoScrollLoop);
 }
 
-function onSectionDragMove(e){
+function positionDraggedSection(){
   if(!dragCtx) return;
   const { sec, placeholder, offsetY } = dragCtx;
-  const top = e.clientY - offsetY;
+  const top = lastPointerY - offsetY;
   sec.style.top = top + 'px';
 
   const dragMidY = top + sec.offsetHeight/2;
@@ -1510,6 +1517,28 @@ function onSectionDragMove(e){
   }
 }
 
+function onSectionDragMove(e){
+  if(!dragCtx) return;
+  lastPointerY = e.clientY;
+  positionDraggedSection();
+}
+
+function autoScrollLoop(){
+  if(!dragCtx){ autoScrollRAF = null; return; }
+  const vh = window.innerHeight;
+  let dy = 0;
+  if(lastPointerY < AUTOSCROLL_EDGE){
+    dy = -AUTOSCROLL_MAX_SPEED * (1 - lastPointerY/AUTOSCROLL_EDGE);
+  } else if(lastPointerY > vh - AUTOSCROLL_EDGE){
+    dy = AUTOSCROLL_MAX_SPEED * (1 - (vh-lastPointerY)/AUTOSCROLL_EDGE);
+  }
+  if(dy !== 0){
+    window.scrollBy(0, dy);
+    positionDraggedSection();
+  }
+  autoScrollRAF = requestAnimationFrame(autoScrollLoop);
+}
+
 function onSectionDragEnd(){
   if(!dragCtx) return;
   const { sec, placeholder } = dragCtx;
@@ -1519,6 +1548,7 @@ function onSectionDragEnd(){
   sec.style.position = ''; sec.style.top = ''; sec.style.left = ''; sec.style.width = ''; sec.style.zIndex = ''; sec.style.pointerEvents = '';
   document.removeEventListener('pointermove', onSectionDragMove);
   document.removeEventListener('pointerup', onSectionDragEnd);
+  if(autoScrollRAF){ cancelAnimationFrame(autoScrollRAF); autoScrollRAF = null; }
   renumberSections();
   saveSectionOrder();
   dragCtx = null;
