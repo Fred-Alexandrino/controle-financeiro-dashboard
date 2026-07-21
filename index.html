@@ -415,7 +415,23 @@ footer a{color:var(--cover);}
   </div>
 </div>
 
-<!-- MODAL: Aporte/Retirada Reserva -->
+<!-- MODAL: Ajustar fatura real -->
+<div class="modal-overlay" id="modalAjuste">
+  <div class="modal-sheet">
+    <div class="modal-head"><h3 id="ajusteModalTitle">Ajustar fatura</h3><button class="modal-close" data-close>✕</button></div>
+    <div class="helper-text" style="margin-bottom:14px;">
+      Use quando a fatura real do banco for diferente da soma das compras lançadas na planilha (ex: compras ainda não digitadas). Esse valor passa a valer no lugar do calculado, só pra esse mês.
+    </div>
+    <div id="ajusteConfigWarning" class="config-warning" style="display:none;">
+      Sem o Apps Script configurado, esse ajuste fica só neste navegador (não é salvo na planilha).
+    </div>
+    <form id="ajusteForm">
+      <div class="form-row"><label>Valor real da fatura</label><input type="number" step="0.01" id="ajusteValor" placeholder="0,00"></div>
+      <button type="submit" class="btn-primary">Salvar ajuste</button>
+      <button type="button" class="btn-primary" id="ajusteRemover" style="background:transparent; color:var(--rust); border:1px solid var(--rust); margin-top:8px;">Remover ajuste (voltar ao calculado)</button>
+    </form>
+  </div>
+</div>
 <div class="modal-overlay" id="modalReserva">
   <div class="modal-sheet">
     <div class="modal-head"><h3 id="reservaModalTitle">Aporte</h3><button class="modal-close" data-close>✕</button></div>
@@ -599,10 +615,33 @@ SNAPSHOT.cardsSummary.push({nome:'Total', fatura:SNAPSHOT.cardsSummary[0].fatura
   totalPagar:SNAPSHOT.cardsSummary[0].totalPagar+SNAPSHOT.cardsSummary[1].totalPagar,
   emAberto:SNAPSHOT.cardsSummary[0].emAberto+SNAPSHOT.cardsSummary[1].emAberto});
 SNAPSHOT.gastosFixosTotal = SNAPSHOT.gastosFixos.reduce((s,x)=>s+x.valor,0) + SNAPSHOT.cardsSummary[0].fatura + SNAPSHOT.cardsSummary[1].fatura;
+SNAPSHOT.faturaAjustes = {
+  Fred: {},
+  Janyne: {
+    'set.-26': 4617.98, 'out.-26': 4125.13, 'nov.-26': 1973.65, 'dez.-26': 1569.26,
+    'jan.-27': 1203.09, 'fev.-27': 1151.27, 'mar.-27': 734.37, 'abr.-27': 712.70, 'mai.-27': 460.81
+  }
+};
 
 let DATA = JSON.parse(JSON.stringify(SNAPSHOT));
 DATA.reservaMovimentos = [];
-let liveStatus = { dashboard:'cached', painel:'cached', fixos:'cached', cartoes:'cached', reserva:'cached' };
+let liveStatus = { dashboard:'cached', painel:'cached', fixos:'cached', cartoes:'cached', reserva:'cached', ajustes:'cached' };
+
+function ajusteFor(cartao, mes){
+  const a = DATA.faturaAjustes && DATA.faturaAjustes[cartao];
+  return a && a[mes] !== undefined ? a[mes] : null;
+}
+function rowEfetiva(row){
+  const aFred = ajusteFor('Fred', row.mes);
+  const aJanyne = ajusteFor('Janyne', row.mes);
+  const fred = aFred !== null ? aFred : row.fred;
+  const janyne = aJanyne !== null ? aJanyne : row.janyne;
+  return {
+    fixos: row.fixos, fred, janyne,
+    total: row.fixos + fred + janyne,
+    fredAjustado: aFred !== null, janyneAjustado: aJanyne !== null
+  };
+}
 
 function saldoObjetivo(nomeObjetivo){
   return DATA.reservaMovimentos
@@ -627,22 +666,25 @@ Chart.defaults.color = '#5B5346';
 
 function renderChartProjecao(){
   const labels = DATA.projecaoMensal.map(r=>r.mes);
+  const efetivas = DATA.projecaoMensal.map(rowEfetiva);
   const selIdx = DATA.projecaoMensal.findIndex(r=>r.mes===state.mes);
-  const mkAlpha = (base, idx) => idx===selIdx ? base : base+'99';
   const ctx = document.getElementById('chartProjecao');
   if(chartProjecao) chartProjecao.destroy();
   chartProjecao = new Chart(ctx, {
     type:'bar',
     data:{ labels, datasets:[
-      {label:'Fixos', data:DATA.projecaoMensal.map(r=>r.fixos), backgroundColor:'#1E3A2F', stack:'s'},
-      {label:'Cartão Fred', data:DATA.projecaoMensal.map(r=>r.fred), backgroundColor:'#B8935B', stack:'s'},
-      {label:'Cartão Janyne', data:DATA.projecaoMensal.map(r=>r.janyne), backgroundColor:'#A6402F', stack:'s'}
+      {label:'Fixos', data:efetivas.map(r=>r.fixos), backgroundColor:'#1E3A2F', stack:'s'},
+      {label:'Cartão Fred', data:efetivas.map(r=>r.fred), backgroundColor:'#B8935B', stack:'s'},
+      {label:'Cartão Janyne', data:efetivas.map(r=>r.janyne), backgroundColor:'#A6402F', stack:'s'}
     ]},
     options:{
       responsive:true,
       onClick:(e,els)=>{ if(els.length){ state.mes = DATA.projecaoMensal[els[0].index].mes; document.getElementById('mesSelect').value = state.mes; fullRender(); } },
       plugins:{ legend:{position:'bottom', labels:{usePointStyle:true, boxWidth:8}},
-        tooltip:{ callbacks:{ label:(c)=> `${c.dataset.label}: ${fmt.format(c.parsed.y)}` } } },
+        tooltip:{ callbacks:{
+          label:(c)=> `${c.dataset.label}: ${fmt.format(c.parsed.y)}`,
+          afterBody:(items)=>{ const i=items[0].dataIndex; const r=efetivas[i]; const tags=[]; if(r.fredAjustado) tags.push('Fred: valor ajustado manualmente'); if(r.janyneAjustado) tags.push('Janyne: valor ajustado manualmente'); return tags; }
+        } } },
       scales:{ x:{grid:{display:false}}, y:{ticks:{callback:v=>fmt0.format(v)}, grid:{color:'#E4DCC4'}} }
     }
   });
@@ -693,18 +735,31 @@ function renderKpiGeral(){
   ].join('');
 }
 
+function kpiCardEdit(label, value, cartao, mes, ajustado){
+  return `<div class="kpi-card ${ajustado?'':''}" style="${ajustado?'border-left-color:#5B7B93':''}">
+    <div class="label" style="display:flex; justify-content:space-between; align-items:center;">
+      <span>${label}${ajustado?' <span style="color:#5B7B93;">·ajustado</span>':''}</span>
+      <button type="button" class="icon-btn" style="width:22px;height:22px;border-color:var(--line);color:var(--ink-soft);" data-edit-cartao="${cartao}" data-edit-mes="${mes}" title="Ajustar valor real (banco)">✎</button>
+    </div>
+    <div class="value">${value}</div>
+  </div>`;
+}
+
 function renderKpiMes(){
   const row = DATA.projecaoMensal.find(r=>r.mes===state.mes) || DATA.projecaoMensal[0];
-  const totalComprometido = row.total;
-  const sobra = DATA.renda.total - totalComprometido;
+  const eff = rowEfetiva(row);
+  const sobra = DATA.renda.total - eff.total;
   document.getElementById('mesLabelTitle').textContent = state.mes;
   document.getElementById('kpiMes').innerHTML = [
-    kpiCard('Gastos fixos', fmt.format(row.fixos)),
-    kpiCard('Fatura Fred', fmt.format(row.fred)),
-    kpiCard('Fatura Janyne', fmt.format(row.janyne)),
-    kpiCard('Total comprometido', fmt.format(totalComprometido)),
+    kpiCard('Gastos fixos', fmt.format(eff.fixos)),
+    kpiCardEdit('Fatura Fred', fmt.format(eff.fred), 'Fred', state.mes, eff.fredAjustado),
+    kpiCardEdit('Fatura Janyne', fmt.format(eff.janyne), 'Janyne', state.mes, eff.janyneAjustado),
+    kpiCard('Total comprometido', fmt.format(eff.total)),
     kpiCard(sobra>=0 ? 'Sobra do mês' : 'Falta no mês', fmt.format(Math.abs(sobra)), {neg: sobra<0})
   ].join('');
+  document.querySelectorAll('#kpiMes [data-edit-cartao]').forEach(btn=>{
+    btn.addEventListener('click', ()=> openAjusteModal(btn.dataset.editCartao, btn.dataset.editMes));
+  });
 }
 
 function renderGoals(){
@@ -863,6 +918,50 @@ function initControls(){
 
   /* --- reserva: aporte/retirada --- */
   document.getElementById('reservaForm').addEventListener('submit', onReservaSubmit);
+
+  /* --- ajuste de fatura --- */
+  document.getElementById('ajusteForm').addEventListener('submit', onAjusteSubmit);
+  document.getElementById('ajusteRemover').addEventListener('click', onAjusteRemover);
+}
+
+let ajusteAtual = { cartao:null, mes:null };
+function openAjusteModal(cartao, mes){
+  ajusteAtual = { cartao, mes };
+  document.getElementById('ajusteConfigWarning').style.display = isConfigured() ? 'none' : 'block';
+  document.getElementById('ajusteModalTitle').textContent = `Ajustar fatura — ${cartao} · ${mes}`;
+  const atual = ajusteFor(cartao, mes);
+  document.getElementById('ajusteValor').value = atual !== null ? atual : '';
+  openModal('modalAjuste');
+}
+
+async function onAjusteSubmit(e){
+  e.preventDefault();
+  const valor = parseFloat(document.getElementById('ajusteValor').value);
+  if(!valor || valor<0){ showToast('Informe um valor válido.', true); return; }
+  const { cartao, mes } = ajusteAtual;
+  if(!DATA.faturaAjustes[cartao]) DATA.faturaAjustes[cartao] = {};
+  DATA.faturaAjustes[cartao][mes] = valor;
+  closeModal('modalAjuste');
+  fullRender();
+  if(isConfigured()){
+    try{ await apiPost({ action:'setFaturaAjuste', cartao, mes, valor }); showToast('Ajuste salvo na planilha ✓'); }
+    catch(err){ showToast('Ajuste aplicado aqui, mas falhou ao salvar: ' + err.message, true); }
+  } else {
+    showToast('Ajuste aplicado nesta tela. Configure ⚙ para salvar na planilha.');
+  }
+}
+
+async function onAjusteRemover(){
+  const { cartao, mes } = ajusteAtual;
+  if(DATA.faturaAjustes[cartao]) delete DATA.faturaAjustes[cartao][mes];
+  closeModal('modalAjuste');
+  fullRender();
+  if(isConfigured()){
+    try{ await apiPost({ action:'setFaturaAjuste', cartao, mes, valor:null }); showToast('Ajuste removido ✓'); }
+    catch(err){ showToast('Removido aqui, mas falhou ao salvar: ' + err.message, true); }
+  } else {
+    showToast('Ajuste removido nesta tela.');
+  }
 }
 
 let expenseTipoAtual = 'cartao';
@@ -973,8 +1072,14 @@ async function fetchReservaLedger(){
     const json = await apiGet();
     if(json && json.ok){
       DATA.reservaMovimentos = json.reservaMovimentos || [];
+      if(json.faturaAjustes){
+        DATA.faturaAjustes = { Fred:{...json.faturaAjustes.Fred}, Janyne:{...json.faturaAjustes.Janyne} };
+        liveStatus.ajustes = 'live';
+      }
       liveStatus.reserva = 'live';
       renderGoals();
+      renderKpiMes();
+      renderChartProjecao();
     }
   }catch(err){ liveStatus.reserva = 'cached'; }
 }
