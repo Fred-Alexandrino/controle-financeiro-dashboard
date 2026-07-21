@@ -736,6 +736,22 @@ function buildTransactions(){
   return rows;
 }
 let TX = buildTransactions();
+let pendingExpenses = []; // gastos de cartão adicionados nesta sessão, ainda não confirmados na busca ao vivo
+
+function chavePendente(estab, data, valorParcela){
+  return `${(estab||'').trim().toLowerCase()}|${data||''}|${Number(valorParcela).toFixed(2)}`;
+}
+
+function mesclarPendentes(){
+  pendingExpenses = pendingExpenses.filter(p=>{
+    const alvo = p.cartao==='Fred' ? DATA.cartaoFred : DATA.cartaoJanyne;
+    const jaExiste = alvo.some(r => chavePendente(r[0], r[5], r[2]) === chavePendente(p.estabelecimento, p.data, p.valorParcela));
+    if(jaExiste) return false; // confirmado na planilha, pode descartar a versão provisória
+    alvo.push([p.estabelecimento, p.parcelasRestantes, p.valorParcela, p.valorAberto, p.categoria, p.data]);
+    return true; // ainda nao confirmado, mantem pendente
+  });
+  TX = buildTransactions();
+}
 
 /* ================= CHARTS ================= */
 let chartProjecao, chartCategoria;
@@ -1185,7 +1201,12 @@ async function onExpenseSubmit(e){
   if(expenseTipoAtual==='cartao'){
     const restantes = Math.max(0, payload.totalParcelas - payload.parcelasPagas);
     const alvo = payload.cartao==='Fred' ? DATA.cartaoFred : DATA.cartaoJanyne;
-    alvo.push([payload.estabelecimento, restantes, payload.valorParcela, restantes*payload.valorParcela, payload.categoria, payload.data]);
+    const valorAberto = restantes*payload.valorParcela;
+    alvo.push([payload.estabelecimento, restantes, payload.valorParcela, valorAberto, payload.categoria, payload.data]);
+    pendingExpenses.push({
+      cartao: payload.cartao, estabelecimento: payload.estabelecimento, data: payload.data,
+      valorParcela: payload.valorParcela, valorAberto, parcelasRestantes: restantes, categoria: payload.categoria
+    });
     TX = buildTransactions();
   } else {
     DATA.gastosFixos.push({despesa:payload.despesa, valor:payload.valor});
@@ -1465,9 +1486,9 @@ async function fetchLive(){
   if(fred.status==='fulfilled' && janyne.status==='fulfilled'){
     DATA.cartaoFred = fred.value;
     DATA.cartaoJanyne = janyne.value;
-    TX = buildTransactions();
     liveStatus.cartoes='live';
   } else liveStatus.cartoes='cached';
+  mesclarPendentes();
 
   if(!DATA.projecaoMensal.find(r=>r.mes===state.mes)) state.mes = DATA.projecaoMensal[0].mes;
   document.getElementById('mesSelect').value = state.mes;
