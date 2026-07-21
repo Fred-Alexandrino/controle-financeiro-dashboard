@@ -444,11 +444,23 @@ footer a{color:var(--cover);}
           <label>Categoria</label>
           <select id="expCategoriaCartao"></select>
         </div>
-        <div class="form-grid2">
-          <div class="form-row"><label>Valor da parcela</label><input type="number" step="0.01" id="expValorParcela" placeholder="0,00"></div>
-          <div class="form-row"><label>Total de parcelas</label><input type="number" id="expTotalParcelas" value="1" min="1"></div>
+        <div class="form-row">
+          <label>Forma de pagamento</label>
+          <div class="type-toggle" id="pagamentoToggle">
+            <button type="button" data-pagamento="avista" class="active">À vista</button>
+            <button type="button" data-pagamento="parcelado">Parcelado</button>
+          </div>
         </div>
-        <div class="form-row"><label>Parcelas já pagas</label><input type="number" id="expParcelasPagas" value="0" min="0"></div>
+        <div class="form-row">
+          <label id="labelValorCompra">Valor da compra</label>
+          <input type="number" step="0.01" id="expValorParcela" placeholder="0,00">
+        </div>
+        <div id="camposParcelado" style="display:none;">
+          <div class="form-grid2">
+            <div class="form-row"><label>Total de parcelas</label><input type="number" id="expTotalParcelas" value="2" min="2"></div>
+            <div class="form-row"><label>Parcelas já pagas</label><input type="number" id="expParcelasPagas" value="0" min="0"></div>
+          </div>
+        </div>
       </div>
       <div id="fieldsFixo" style="display:none;">
         <div class="form-row">
@@ -962,6 +974,7 @@ function initControls(){
   document.getElementById('fabAddExpense').addEventListener('click', ()=>{
     document.getElementById('expenseConfigWarning').style.display = isConfigured() ? 'none' : 'block';
     populateCategorySelect();
+    resetPagamentoToggle();
     openModal('modalExpense');
   });
   document.querySelectorAll('.type-toggle button[data-tipo]').forEach(btn=>{
@@ -976,6 +989,17 @@ function initControls(){
   });
   document.getElementById('expenseForm').addEventListener('submit', onExpenseSubmit);
 
+  document.querySelectorAll('#pagamentoToggle button[data-pagamento]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('#pagamentoToggle button[data-pagamento]').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      formaPagamentoAtual = btn.dataset.pagamento;
+      const parcelado = formaPagamentoAtual === 'parcelado';
+      document.getElementById('camposParcelado').style.display = parcelado ? 'block' : 'none';
+      document.getElementById('labelValorCompra').textContent = parcelado ? 'Valor da parcela' : 'Valor da compra';
+    });
+  });
+
   /* --- reserva: aporte/retirada --- */
   document.getElementById('reservaForm').addEventListener('submit', onReservaSubmit);
 
@@ -987,6 +1011,7 @@ function initControls(){
   document.getElementById('addFixoBtn').addEventListener('click', ()=>{
     document.getElementById('expenseConfigWarning').style.display = isConfigured() ? 'none' : 'block';
     populateCategorySelect();
+    resetPagamentoToggle();
     document.querySelectorAll('.type-toggle button[data-tipo]').forEach(b=>b.classList.toggle('active', b.dataset.tipo==='fixo'));
     document.getElementById('fieldsCartao').style.display = 'none';
     document.getElementById('fieldsFixo').style.display = 'block';
@@ -1101,6 +1126,14 @@ async function onAjusteRemover(){
 }
 
 let expenseTipoAtual = 'cartao';
+let formaPagamentoAtual = 'avista';
+
+function resetPagamentoToggle(){
+  formaPagamentoAtual = 'avista';
+  document.querySelectorAll('#pagamentoToggle button[data-pagamento]').forEach(b=>b.classList.toggle('active', b.dataset.pagamento==='avista'));
+  document.getElementById('camposParcelado').style.display = 'none';
+  document.getElementById('labelValorCompra').textContent = 'Valor da compra';
+}
 function openModal(id){ document.getElementById(id).classList.add('open'); }
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
 
@@ -1116,13 +1149,15 @@ async function onExpenseSubmit(e){
   if(expenseTipoAtual==='cartao'){
     const estabelecimento = document.getElementById('expEstabelecimento').value.trim();
     const valorParcela = parseFloat(document.getElementById('expValorParcela').value);
-    if(!estabelecimento || !valorParcela){ showToast('Preencha estabelecimento e valor da parcela.', true); return; }
+    if(!estabelecimento || !valorParcela){ showToast('Preencha estabelecimento e valor.', true); return; }
+    const isParcelado = formaPagamentoAtual === 'parcelado';
+    const totalParcelas = isParcelado ? (parseInt(document.getElementById('expTotalParcelas').value,10) || 2) : 1;
+    const parcelasPagas = isParcelado ? (parseInt(document.getElementById('expParcelasPagas').value,10) || 0) : 0;
     payload = {
       action:'addExpense', tipo:'cartao',
       cartao: document.getElementById('expCartao').value,
       estabelecimento, categoria: document.getElementById('expCategoriaCartao').value,
-      valorParcela, totalParcelas: parseInt(document.getElementById('expTotalParcelas').value,10)||1,
-      parcelasPagas: parseInt(document.getElementById('expParcelasPagas').value,10)||0
+      valorParcela, totalParcelas, parcelasPagas
     };
   } else {
     const despesa = document.getElementById('expDespesa').value.trim();
@@ -1144,7 +1179,7 @@ async function onExpenseSubmit(e){
 
   if(!isConfigured()){
     showToast('Gasto adicionado nesta tela. Configure ⚙ para salvar na planilha.');
-    closeModal('modalExpense'); e.target.reset(); fullRender();
+    closeModal('modalExpense'); e.target.reset(); resetPagamentoToggle(); fullRender();
     return;
   }
 
@@ -1152,7 +1187,7 @@ async function onExpenseSubmit(e){
   try{
     await apiPost(payload);
     showToast('Gasto salvo na planilha ✓');
-    closeModal('modalExpense'); e.target.reset();
+    closeModal('modalExpense'); e.target.reset(); resetPagamentoToggle();
   }catch(err){
     showToast('Salvo aqui, mas falhou ao gravar na planilha: ' + err.message, true);
   }finally{
