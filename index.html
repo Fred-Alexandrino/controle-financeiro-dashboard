@@ -6,7 +6,7 @@
 <title>Caderneta — Controle Financeiro</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
-<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#1E3A2F">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -107,6 +107,18 @@ body{
 .section-title .n{
   font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--brass); border:1px solid var(--brass);
   padding:2px 8px; border-radius:5px; font-weight:700;
+}
+.drag-handle{
+  cursor:grab; color:var(--ink-soft); font-size:18px; line-height:1; touch-action:none;
+  padding:4px 2px; user-select:none; -webkit-user-select:none;
+}
+.drag-handle:active{cursor:grabbing;}
+.dashboard-section{transition:box-shadow .15s ease;}
+.dashboard-section.dragging-ghost{
+  box-shadow:0 14px 34px rgba(30,58,47,.28); border-radius:12px; background:var(--paper); opacity:.96;
+}
+.section-placeholder{
+  border:2px dashed var(--brass); border-radius:12px; background:rgba(184,147,91,.08); margin:36px 0 14px;
 }
 .live-tag{font-family:'IBM Plex Mono',monospace; font-size:10px; padding:2px 7px; border-radius:5px; margin-left:auto; font-weight:600;}
 .live-tag.live{background:var(--green-bg); color:#1F6B3C;}
@@ -261,7 +273,7 @@ footer a{color:var(--cover);}
   <div class="cover-inner">
     <div>
       <h1>Caderneta Financeira</h1>
-      <p class="subtitle">Controle de gastos e reserva — Fred &amp; Janyne · projeção de 13 meses a partir de ago./26</p>
+      <p class="subtitle">Organizando o Caos Financeiro — Fred &amp; Janyne · projeção de 13 meses a partir de ago./26</p>
     </div>
     <div class="stamp">
       <span class="stamp-badge"><span class="dot" id="liveDot"></span> <span id="liveText">verificando…</span></span>
@@ -292,59 +304,73 @@ footer a{color:var(--cover);}
     </div>
   </div>
 
-  <div class="section-title">01 &nbsp;Panorama geral <span class="live-tag" id="tagDashboard"></span></div>
-  <div class="kpi-grid" id="kpiGeral"></div>
+  <section class="dashboard-section" data-id="panorama">
+    <div class="section-title"><span class="drag-handle" title="Arraste para reordenar">⠿</span><span class="n">01</span>Panorama geral <span class="live-tag" id="tagDashboard"></span></div>
+    <div class="kpi-grid" id="kpiGeral"></div>
+  </section>
 
-  <div class="section-title">02 &nbsp;Mês selecionado: <span id="mesLabelTitle" style="color:var(--brass); margin-left:4px;"></span></div>
-  <div class="kpi-grid" id="kpiMes"></div>
+  <section class="dashboard-section" data-id="mes">
+    <div class="section-title"><span class="drag-handle" title="Arraste para reordenar">⠿</span><span class="n">02</span>Mês selecionado: <span id="mesLabelTitle" style="color:var(--brass); margin-left:4px;"></span></div>
+    <div class="kpi-grid" id="kpiMes"></div>
+  </section>
 
-  <div class="section-title">03 &nbsp;Projeção mensal (13 meses) <span class="live-tag" id="tagPainel"></span></div>
-  <div class="panel chart-box"><canvas id="chartProjecao" height="90"></canvas></div>
+  <section class="dashboard-section" data-id="projecao">
+    <div class="section-title"><span class="drag-handle" title="Arraste para reordenar">⠿</span><span class="n">03</span>Projeção mensal (13 meses) <span class="live-tag" id="tagPainel"></span></div>
+    <div class="panel chart-box"><canvas id="chartProjecao" height="90"></canvas></div>
+  </section>
 
-  <div class="section-title">04 &nbsp;Reserva &amp; metas</div>
-  <div class="grid-2">
+  <section class="dashboard-section" data-id="reserva">
+    <div class="section-title"><span class="drag-handle" title="Arraste para reordenar">⠿</span><span class="n">04</span>Reserva &amp; metas</div>
+    <div class="grid-2">
+      <div class="panel">
+        <div id="goalsBox"></div>
+        <ul class="reco-list" id="recoList"></ul>
+      </div>
+      <div class="panel chart-box">
+        <div style="font-size:12px; color:var(--ink-soft); font-weight:600; text-transform:uppercase; margin-bottom:10px;">Como dividir R$ / mês guardado</div>
+        <canvas id="chartAlocacao"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <section class="dashboard-section" data-id="categoria">
+    <div class="section-title"><span class="drag-handle" title="Arraste para reordenar">⠿</span><span class="n">05</span>Gasto em aberto por categoria</div>
+    <div class="panel chart-box"><canvas id="chartCategoria" height="110"></canvas></div>
+  </section>
+
+  <section class="dashboard-section" data-id="fixos">
+    <div class="section-title"><span class="drag-handle" title="Arraste para reordenar">⠿</span><span class="n">06</span>Gastos fixos — <span id="fixosMesLabel" style="color:var(--brass); margin-left:4px;"></span> <span class="live-tag" id="tagFixos"></span></div>
     <div class="panel">
-      <div id="goalsBox"></div>
-      <ul class="reco-list" id="recoList"></ul>
+      <div class="helper-text" style="margin-bottom:12px;">Valores do mês selecionado no filtro do topo. Itens sem ajuste específico usam o valor padrão.</div>
+      <div id="fixosList"></div>
+      <button type="button" class="btn-primary" id="addFixoBtn" style="margin-top:14px; background:transparent; color:var(--cover); border:1px dashed var(--line);">+ Novo gasto fixo</button>
+      <div style="text-align:right; margin-top:14px; font-family:'IBM Plex Mono',monospace; font-weight:700; color:var(--cover);">Total do mês: <span id="fixosTotal"></span></div>
     </div>
-    <div class="panel chart-box">
-      <div style="font-size:12px; color:var(--ink-soft); font-weight:600; text-transform:uppercase; margin-bottom:10px;">Como dividir R$ / mês guardado</div>
-      <canvas id="chartAlocacao"></canvas>
-    </div>
-  </div>
+  </section>
 
-  <div class="section-title">05 &nbsp;Gasto em aberto por categoria</div>
-  <div class="panel chart-box"><canvas id="chartCategoria" height="110"></canvas></div>
-
-  <div class="section-title">06 &nbsp;Gastos fixos — <span id="fixosMesLabel" style="color:var(--brass); margin-left:4px;"></span> <span class="live-tag" id="tagFixos"></span></div>
-  <div class="panel">
-    <div class="helper-text" style="margin-bottom:12px;">Valores do mês selecionado no filtro do topo. Itens sem ajuste específico usam o valor padrão.</div>
-    <div id="fixosList"></div>
-    <button type="button" class="btn-primary" id="addFixoBtn" style="margin-top:14px; background:transparent; color:var(--cover); border:1px dashed var(--line);">+ Novo gasto fixo</button>
-    <div style="text-align:right; margin-top:14px; font-family:'IBM Plex Mono',monospace; font-weight:700; color:var(--cover);">Total do mês: <span id="fixosTotal"></span></div>
-  </div>
-
-  <div class="section-title">07 &nbsp;Lançamentos em aberto (cartões) <span class="live-tag" id="tagCartoes"></span></div>
-  <div class="panel">
-    <div class="table-controls">
-      <span style="font-size:12px; color:var(--ink-soft);" id="tableCount"></span>
+  <section class="dashboard-section" data-id="cartoes">
+    <div class="section-title"><span class="drag-handle" title="Arraste para reordenar">⠿</span><span class="n">07</span>Lançamentos em aberto (cartões) <span class="live-tag" id="tagCartoes"></span></div>
+    <div class="panel">
+      <div class="table-controls">
+        <span style="font-size:12px; color:var(--ink-soft);" id="tableCount"></span>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th data-k="cartao">Cartão</th>
+              <th data-k="estabelecimento">Estabelecimento</th>
+              <th data-k="categoria">Categoria</th>
+              <th data-k="parcelasRestantes">Parc. rest.</th>
+              <th data-k="valorParcela">Valor parcela</th>
+              <th data-k="valorAberto">Em aberto</th>
+            </tr>
+          </thead>
+          <tbody id="txBody"></tbody>
+        </table>
+      </div>
     </div>
-    <div class="table-scroll">
-      <table>
-        <thead>
-          <tr>
-            <th data-k="cartao">Cartão</th>
-            <th data-k="estabelecimento">Estabelecimento</th>
-            <th data-k="categoria">Categoria</th>
-            <th data-k="parcelasRestantes">Parc. rest.</th>
-            <th data-k="valorParcela">Valor parcela</th>
-            <th data-k="valorAberto">Em aberto</th>
-          </tr>
-        </thead>
-        <tbody id="txBody"></tbody>
-      </table>
-    </div>
-  </div>
+  </section>
 
   <footer>
     Dados vindos de <a href="https://docs.google.com/spreadsheets/d/18V1ToE0wGC6jBhQQ3KVkH2mbMDCkKwQ5QDpQ0S6jn9U/edit" target="_blank">Controle Financeiro (Google Sheets)</a> ·
@@ -1392,8 +1418,103 @@ async function fetchLive(){
   fullRender();
 }
 
+/* ================= DRAG & DROP DE SEÇÕES ================= */
+const SECTION_ORDER_KEY = 'caderneta_section_order_v1';
+let dragCtx = null;
+
+function applySavedSectionOrder(){
+  const footer = document.querySelector('footer');
+  let saved = null;
+  try{ saved = JSON.parse(localStorage.getItem(SECTION_ORDER_KEY) || 'null'); }catch(e){}
+  if(!saved) return;
+  saved.forEach(id=>{
+    const el = document.querySelector(`.dashboard-section[data-id="${id}"]`);
+    if(el) footer.parentNode.insertBefore(el, footer);
+  });
+}
+
+function renumberSections(){
+  document.querySelectorAll('.dashboard-section').forEach((sec,i)=>{
+    const n = sec.querySelector('.section-title .n');
+    if(n) n.textContent = String(i+1).padStart(2,'0');
+  });
+}
+
+function saveSectionOrder(){
+  const order = Array.from(document.querySelectorAll('.dashboard-section')).map(s=>s.dataset.id);
+  localStorage.setItem(SECTION_ORDER_KEY, JSON.stringify(order));
+}
+
+function initDragReorder(){
+  applySavedSectionOrder();
+  renumberSections();
+  document.querySelectorAll('.dashboard-section .drag-handle').forEach(handle=>{
+    handle.addEventListener('pointerdown', onSectionDragStart);
+  });
+}
+
+function onSectionDragStart(e){
+  e.preventDefault();
+  const sec = e.currentTarget.closest('.dashboard-section');
+  const rect = sec.getBoundingClientRect();
+
+  const placeholder = document.createElement('div');
+  placeholder.className = 'section-placeholder';
+  placeholder.style.height = rect.height + 'px';
+  sec.parentNode.insertBefore(placeholder, sec.nextSibling);
+
+  sec.classList.add('dragging-ghost');
+  sec.style.position = 'fixed';
+  sec.style.top = rect.top + 'px';
+  sec.style.left = rect.left + 'px';
+  sec.style.width = rect.width + 'px';
+  sec.style.zIndex = 999;
+  sec.style.pointerEvents = 'none';
+
+  dragCtx = { sec, placeholder, offsetY: e.clientY - rect.top };
+  document.addEventListener('pointermove', onSectionDragMove);
+  document.addEventListener('pointerup', onSectionDragEnd);
+}
+
+function onSectionDragMove(e){
+  if(!dragCtx) return;
+  const { sec, placeholder, offsetY } = dragCtx;
+  const top = e.clientY - offsetY;
+  sec.style.top = top + 'px';
+
+  const dragMidY = top + sec.offsetHeight/2;
+  const others = Array.from(document.querySelectorAll('.dashboard-section')).filter(s=>s!==sec);
+  for(const other of others){
+    const r = other.getBoundingClientRect();
+    const mid = r.top + r.height/2;
+    const placeholderIsAfter = !!(other.compareDocumentPosition(placeholder) & Node.DOCUMENT_POSITION_FOLLOWING);
+    if(dragMidY < mid && placeholderIsAfter){
+      other.parentNode.insertBefore(placeholder, other);
+      break;
+    } else if(dragMidY > mid && !placeholderIsAfter){
+      other.parentNode.insertBefore(placeholder, other.nextSibling);
+      break;
+    }
+  }
+}
+
+function onSectionDragEnd(){
+  if(!dragCtx) return;
+  const { sec, placeholder } = dragCtx;
+  placeholder.parentNode.insertBefore(sec, placeholder);
+  placeholder.remove();
+  sec.classList.remove('dragging-ghost');
+  sec.style.position = ''; sec.style.top = ''; sec.style.left = ''; sec.style.width = ''; sec.style.zIndex = ''; sec.style.pointerEvents = '';
+  document.removeEventListener('pointermove', onSectionDragMove);
+  document.removeEventListener('pointerup', onSectionDragEnd);
+  renumberSections();
+  saveSectionOrder();
+  dragCtx = null;
+}
+
 /* ================= INIT ================= */
 initControls();
+initDragReorder();
 fullRender();
 fetchLive();
 fetchReservaLedger();
