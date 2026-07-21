@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Explorador — Controle Financeiro</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --line:#262b36;
+    --text:#e8eaed; --muted:#8b93a3;
+    --ok:#4ade80; --err:#f87171; --accent:#5eead4;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    padding:24px;
+  }
+  h1{font-size:20px; margin:0 0 4px;}
+  .sub{color:var(--muted); font-size:13px; margin-bottom:20px;}
+  .tabs{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;}
+  .tab-btn{
+    background:var(--panel); border:1px solid var(--line); color:var(--text);
+    padding:8px 14px; border-radius:8px; font-size:13px; cursor:pointer;
+  }
+  .tab-btn.active{border-color:var(--accent); color:var(--accent);}
+  .status{font-size:12px; margin-left:6px;}
+  .status.ok{color:var(--ok);}
+  .status.err{color:var(--err);}
+  .panel{
+    background:var(--panel); border:1px solid var(--line); border-radius:10px;
+    padding:16px; overflow:auto; max-height:70vh;
+  }
+  table{border-collapse:collapse; width:100%; font-size:12px;}
+  th,td{border:1px solid var(--line); padding:6px 8px; text-align:left; white-space:nowrap;}
+  th{background:#1d212b; color:var(--accent); position:sticky; top:0;}
+  tr:nth-child(even) td{background:#14171e;}
+  .err-box{color:var(--err); font-size:13px; line-height:1.6;}
+  .meta{color:var(--muted); font-size:12px; margin-bottom:10px;}
+  .footer{margin-top:16px; font-size:12px; color:var(--muted);}
+  code{background:#1d212b; padding:1px 5px; border-radius:4px;}
+</style>
+</head>
+<body>
+
+<h1>Explorador — Controle Financeiro</h1>
+<div class="sub">Conectado ao vivo na sua planilha Google Sheets. Objetivo: revelar as colunas reais de cada aba para eu montar o dashboard definitivo.</div>
+
+<div class="tabs" id="tabs"></div>
+<div class="meta" id="meta"></div>
+<div class="panel" id="panel">Carregando...</div>
+
+<div class="footer">Se alguma aba der erro, o nome dela provavelmente é diferente do que eu supus — me diga o nome exato como aparece na aba do Google Sheets.</div>
+
+<script>
+const SHEET_ID = "18V1ToE0wGC6jBhQQ3KVkH2mbMDCkKwQ5QDpQ0S6jn9U";
+const CANDIDATE_TABS = ["Dashboard", "Painel", "Reserva Financeira", "GASTOS TOTAIS", "cartão fred", "cartão janyne"];
+
+const tabsEl = document.getElementById('tabs');
+const panelEl = document.getElementById('panel');
+const metaEl = document.getElementById('meta');
+const results = {};
+
+function buttonFor(name){
+  const b = document.createElement('button');
+  b.className = 'tab-btn';
+  b.textContent = name;
+  b.onclick = () => selectTab(name);
+  b.dataset.name = name;
+  tabsEl.appendChild(b);
+  return b;
+}
+
+async function fetchSheet(sheetName){
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
+  const res = await fetch(url);
+  const text = await res.text();
+  const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\);?\s*$/);
+  if(!match) throw new Error("Resposta inesperada do Google (aba pode não existir ou nome não confere).");
+  const json = JSON.parse(match[1]);
+  if(json.status === 'error'){
+    const msg = (json.errors && json.errors[0] && json.errors[0].detailed_message) || 'Erro desconhecido';
+    throw new Error(msg);
+  }
+  return json.table;
+}
+
+function renderTable(table){
+  const cols = table.cols.map((c,i) => c.label || c.id || `Col ${i+1}`);
+  let html = '<table><thead><tr>';
+  cols.forEach(c => html += `<th>${c || '(vazio)'}</th>`);
+  html += '</tr></thead><tbody>';
+  table.rows.slice(0, 60).forEach(r => {
+    html += '<tr>';
+    (r.c || []).forEach(cell => {
+      const val = cell ? (cell.f !== undefined && cell.f !== null ? cell.f : cell.v) : '';
+      html += `<td>${val === null || val === undefined ? '' : val}</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  return html;
+}
+
+async function selectTab(name){
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.name === name));
+  panelEl.innerHTML = 'Carregando...';
+  metaEl.textContent = '';
+  try{
+    let table = results[name];
+    if(!table){
+      table = await fetchSheet(name);
+      results[name] = table;
+    }
+    metaEl.textContent = `${table.cols.length} colunas · ${table.rows.length} linhas (mostrando até 60)`;
+    panelEl.innerHTML = renderTable(table);
+  }catch(err){
+    panelEl.innerHTML = `<div class="err-box">Não consegui carregar a aba "<b>${name}</b>".<br>Motivo: ${err.message}<br><br>Verifique o nome exato da aba (maiúsculas/acentos importam) e me avise.</div>`;
+  }
+}
+
+async function init(){
+  for(const name of CANDIDATE_TABS){
+    const btn = buttonFor(name);
+    fetchSheet(name).then(table => {
+      results[name] = table;
+      const span = document.createElement('span');
+      span.className = 'status ok';
+      span.textContent = '✓';
+      btn.appendChild(span);
+    }).catch(() => {
+      const span = document.createElement('span');
+      span.className = 'status err';
+      span.textContent = '✗';
+      btn.appendChild(span);
+    });
+  }
+  selectTab(CANDIDATE_TABS[0]);
+}
+
+init();
+</script>
+</body>
+</html>
