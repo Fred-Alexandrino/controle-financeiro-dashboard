@@ -273,7 +273,7 @@ footer a{color:var(--cover);}
   <div class="cover-inner">
     <div>
       <h1>Caderneta Financeira</h1>
-      <p class="subtitle">Organizando o Caos Financeiro — Fred &amp; Janyne · projeção de 13 meses a partir de ago./26</p>
+      <p class="subtitle">Organizando o Caos Financeiro</p>
     </div>
     <div class="stamp">
       <span class="stamp-badge"><span class="dot" id="liveDot"></span> <span id="liveText">verificando…</span></span>
@@ -1522,7 +1522,16 @@ setInterval(()=>{ fetchLive(); fetchReservaLedger(); }, 60000);
 
 if('serviceWorker' in navigator){
   window.addEventListener('load', ()=>{
-    navigator.serviceWorker.register('service-worker.js').catch(()=>{});
+    navigator.serviceWorker.register('service-worker.js').then(reg=>{
+      reg.addEventListener('updatefound', ()=>{
+        const newWorker = reg.installing;
+        newWorker.addEventListener('statechange', ()=>{
+          if(newWorker.state==='activated'){ showToast('App atualizado — recarregando…'); setTimeout(()=>location.reload(), 1200); }
+        });
+      });
+      // força checar por atualização toda vez que o app abre
+      reg.update();
+    }).catch(()=>{});
   });
 }
 </script>
