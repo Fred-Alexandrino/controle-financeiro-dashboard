@@ -169,6 +169,10 @@ tbody tr:hover{background:var(--paper-2);}
 .fixos-list{display:grid; grid-template-columns:1fr 1fr; gap:0 24px;}
 .fixos-row{display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px dotted var(--line); font-size:13px;}
 .fixos-row .amount{color:var(--cover);}
+.fixos-row2{display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px dotted var(--line); font-size:13px; gap:10px;}
+.fixos-row2 .name{flex:1;}
+.fixos-row2 .name .tag-ajustado{color:#5B7B93; font-size:11px; margin-left:6px;}
+.fixos-row2 .amount{color:var(--cover); min-width:100px; text-align:right;}
 @media (max-width:640px){.fixos-list{grid-template-columns:1fr;}}
 
 .chart-box{position:relative;}
@@ -312,10 +316,12 @@ footer a{color:var(--cover);}
   <div class="section-title">05 &nbsp;Gasto em aberto por categoria</div>
   <div class="panel chart-box"><canvas id="chartCategoria" height="110"></canvas></div>
 
-  <div class="section-title">06 &nbsp;Gastos fixos mensais <span class="live-tag" id="tagFixos"></span></div>
+  <div class="section-title">06 &nbsp;Gastos fixos — <span id="fixosMesLabel" style="color:var(--brass); margin-left:4px;"></span> <span class="live-tag" id="tagFixos"></span></div>
   <div class="panel">
-    <div class="fixos-list" id="fixosList"></div>
-    <div style="text-align:right; margin-top:14px; font-family:'IBM Plex Mono',monospace; font-weight:700; color:var(--cover);">Total: <span id="fixosTotal"></span></div>
+    <div class="helper-text" style="margin-bottom:12px;">Valores do mês selecionado no filtro do topo. Itens sem ajuste específico usam o valor padrão.</div>
+    <div id="fixosList"></div>
+    <button type="button" class="btn-primary" id="addFixoBtn" style="margin-top:14px; background:transparent; color:var(--cover); border:1px dashed var(--line);">+ Novo gasto fixo</button>
+    <div style="text-align:right; margin-top:14px; font-family:'IBM Plex Mono',monospace; font-weight:700; color:var(--cover);">Total do mês: <span id="fixosTotal"></span></div>
   </div>
 
   <div class="section-title">07 &nbsp;Lançamentos em aberto (cartões) <span class="live-tag" id="tagCartoes"></span></div>
@@ -348,6 +354,23 @@ footer a{color:var(--cover);}
 
 <button class="fab" id="fabAddExpense" title="Adicionar gasto">+</button>
 <div id="toastBox"></div>
+
+<!-- MODAL: Editar gasto fixo -->
+<div class="modal-overlay" id="modalFixo">
+  <div class="modal-sheet">
+    <div class="modal-head"><h3 id="fixoModalTitle">Editar gasto fixo</h3><button class="modal-close" data-close>✕</button></div>
+    <div id="fixoConfigWarning" class="config-warning" style="display:none;">
+      Sem o Apps Script configurado, as alterações ficam só neste navegador.
+    </div>
+    <form id="fixoForm">
+      <div class="form-row"><label>Nome da despesa</label><input type="text" id="fixoNome"></div>
+      <div class="form-row"><label>Valor padrão (usado quando não há valor específico do mês)</label><input type="number" step="0.01" id="fixoValorPadrao"></div>
+      <div class="form-row"><label>Valor específico para <span id="fixoMesAtual"></span> (opcional)</label><input type="number" step="0.01" id="fixoValorMes" placeholder="deixe em branco para usar o padrão"></div>
+      <button type="submit" class="btn-primary">Salvar</button>
+      <button type="button" class="btn-primary" id="fixoExcluir" style="background:transparent; color:var(--rust); border:1px solid var(--rust); margin-top:8px;">Excluir este gasto fixo</button>
+    </form>
+  </div>
+</div>
 
 <!-- MODAL: Configurações -->
 <div class="modal-overlay" id="modalSettings">
@@ -622,23 +645,35 @@ SNAPSHOT.faturaAjustes = {
     'jan.-27': 1203.09, 'fev.-27': 1151.27, 'mar.-27': 734.37, 'abr.-27': 712.70, 'mai.-27': 460.81
   }
 };
+SNAPSHOT.gastosFixosAjustes = {}; // { 'set.-26': { 'Enel': 340.00 }, ... }
 
 let DATA = JSON.parse(JSON.stringify(SNAPSHOT));
 DATA.reservaMovimentos = [];
+DATA.gastosFixosAjustes = DATA.gastosFixosAjustes || {};
 let liveStatus = { dashboard:'cached', painel:'cached', fixos:'cached', cartoes:'cached', reserva:'cached', ajustes:'cached' };
 
 function ajusteFor(cartao, mes){
   const a = DATA.faturaAjustes && DATA.faturaAjustes[cartao];
   return a && a[mes] !== undefined ? a[mes] : null;
 }
+function gastoFixoValorEfetivo(despesa, mes){
+  const over = DATA.gastosFixosAjustes[mes] && DATA.gastosFixosAjustes[mes][despesa];
+  if(over !== undefined && over !== null) return over;
+  const item = DATA.gastosFixos.find(f=>f.despesa===despesa);
+  return item ? item.valor : 0;
+}
+function totalFixosMes(mes){
+  return DATA.gastosFixos.reduce((s,f)=> s + gastoFixoValorEfetivo(f.despesa, mes), 0);
+}
 function rowEfetiva(row){
   const aFred = ajusteFor('Fred', row.mes);
   const aJanyne = ajusteFor('Janyne', row.mes);
   const fred = aFred !== null ? aFred : row.fred;
   const janyne = aJanyne !== null ? aJanyne : row.janyne;
+  const fixos = totalFixosMes(row.mes);
   return {
-    fixos: row.fixos, fred, janyne,
-    total: row.fixos + fred + janyne,
+    fixos, fred, janyne,
+    total: fixos + fred + janyne,
     fredAjustado: aFred !== null, janyneAjustado: aJanyne !== null
   };
 }
@@ -799,9 +834,21 @@ function renderReco(){
 }
 
 function renderFixos(){
-  document.getElementById('fixosList').innerHTML = DATA.gastosFixos.map(f=>
-    `<div class="fixos-row"><span>${f.despesa}</span><span class="amount">${fmt.format(f.valor)}</span></div>`).join('');
-  document.getElementById('fixosTotal').textContent = fmt.format(DATA.gastosFixosTotal);
+  document.getElementById('fixosMesLabel').textContent = state.mes;
+  document.getElementById('fixosList').innerHTML = DATA.gastosFixos.map(f=>{
+    const over = DATA.gastosFixosAjustes[state.mes] && DATA.gastosFixosAjustes[state.mes][f.despesa];
+    const ajustado = over !== undefined && over !== null;
+    const valor = ajustado ? over : f.valor;
+    return `<div class="fixos-row2">
+      <span class="name">${f.despesa}${ajustado ? '<span class="tag-ajustado">· mês</span>' : ''}</span>
+      <span class="amount">${fmt.format(valor)}</span>
+      <button type="button" class="icon-btn" style="width:24px;height:24px;border-color:var(--line);color:var(--ink-soft);" data-fixo-edit="${f.despesa}">✎</button>
+    </div>`;
+  }).join('');
+  document.getElementById('fixosTotal').textContent = fmt.format(totalFixosMes(state.mes));
+  document.querySelectorAll('#fixosList [data-fixo-edit]').forEach(btn=>{
+    btn.addEventListener('click', ()=> openFixoModal(btn.dataset.fixoEdit));
+  });
 }
 
 function renderTable(){
@@ -851,7 +898,7 @@ function initControls(){
   const sel = document.getElementById('mesSelect');
   sel.innerHTML = DATA.projecaoMensal.map(r=>`<option value="${r.mes}">${r.mes}</option>`).join('');
   sel.value = state.mes;
-  sel.addEventListener('change', ()=>{ state.mes = sel.value; renderKpiMes(); renderChartProjecao(); });
+  sel.addEventListener('change', ()=>{ state.mes = sel.value; renderKpiMes(); renderChartProjecao(); renderFixos(); });
 
   document.querySelectorAll('#cardChips .chip').forEach(chip=>{
     chip.addEventListener('click', ()=>{
@@ -922,6 +969,82 @@ function initControls(){
   /* --- ajuste de fatura --- */
   document.getElementById('ajusteForm').addEventListener('submit', onAjusteSubmit);
   document.getElementById('ajusteRemover').addEventListener('click', onAjusteRemover);
+
+  /* --- gastos fixos --- */
+  document.getElementById('addFixoBtn').addEventListener('click', ()=>{
+    document.getElementById('expenseConfigWarning').style.display = isConfigured() ? 'none' : 'block';
+    populateCategorySelect();
+    document.querySelectorAll('.type-toggle button[data-tipo]').forEach(b=>b.classList.toggle('active', b.dataset.tipo==='fixo'));
+    document.getElementById('fieldsCartao').style.display = 'none';
+    document.getElementById('fieldsFixo').style.display = 'block';
+    expenseTipoAtual = 'fixo';
+    openModal('modalExpense');
+  });
+  document.getElementById('fixoForm').addEventListener('submit', onFixoSubmit);
+  document.getElementById('fixoExcluir').addEventListener('click', onFixoExcluir);
+}
+
+let fixoAtual = null;
+function openFixoModal(despesa){
+  fixoAtual = despesa;
+  document.getElementById('fixoConfigWarning').style.display = isConfigured() ? 'none' : 'block';
+  document.getElementById('fixoModalTitle').textContent = 'Editar — ' + despesa;
+  document.getElementById('fixoMesAtual').textContent = state.mes;
+  const item = DATA.gastosFixos.find(f=>f.despesa===despesa);
+  document.getElementById('fixoNome').value = item ? item.despesa : '';
+  document.getElementById('fixoValorPadrao').value = item ? item.valor : '';
+  const over = DATA.gastosFixosAjustes[state.mes] && DATA.gastosFixosAjustes[state.mes][despesa];
+  document.getElementById('fixoValorMes').value = (over !== undefined && over !== null) ? over : '';
+  openModal('modalFixo');
+}
+
+async function onFixoSubmit(e){
+  e.preventDefault();
+  const novoNome = document.getElementById('fixoNome').value.trim();
+  const novoValorPadrao = parseFloat(document.getElementById('fixoValorPadrao').value);
+  const valorMesStr = document.getElementById('fixoValorMes').value;
+  if(!novoNome || isNaN(novoValorPadrao)){ showToast('Preencha nome e valor padrão.', true); return; }
+  const oldDespesa = fixoAtual;
+
+  const item = DATA.gastosFixos.find(f=>f.despesa===oldDespesa);
+  if(item){ item.despesa = novoNome; item.valor = novoValorPadrao; }
+  if(novoNome !== oldDespesa){
+    Object.values(DATA.gastosFixosAjustes).forEach(mesObj=>{
+      if(mesObj[oldDespesa] !== undefined){ mesObj[novoNome] = mesObj[oldDespesa]; delete mesObj[oldDespesa]; }
+    });
+  }
+  if(!DATA.gastosFixosAjustes[state.mes]) DATA.gastosFixosAjustes[state.mes] = {};
+  if(valorMesStr === ''){ delete DATA.gastosFixosAjustes[state.mes][novoNome]; }
+  else { DATA.gastosFixosAjustes[state.mes][novoNome] = parseFloat(valorMesStr); }
+
+  closeModal('modalFixo');
+  fullRender();
+
+  if(isConfigured()){
+    try{
+      await apiPost({ action:'editGastoFixo', oldDespesa, despesa:novoNome, valor:novoValorPadrao });
+      if(valorMesStr === '') await apiPost({ action:'setGastoFixoMes', despesa:novoNome, mes:state.mes, valor:null });
+      else await apiPost({ action:'setGastoFixoMes', despesa:novoNome, mes:state.mes, valor:parseFloat(valorMesStr) });
+      showToast('Salvo na planilha ✓');
+    }catch(err){ showToast('Aplicado aqui, mas falhou ao salvar: ' + err.message, true); }
+  } else {
+    showToast('Aplicado nesta tela. Configure ⚙ para salvar na planilha.');
+  }
+}
+
+async function onFixoExcluir(){
+  const despesa = fixoAtual;
+  if(!confirm(`Excluir "${despesa}" da lista de gastos fixos?`)) return;
+  DATA.gastosFixos = DATA.gastosFixos.filter(f=>f.despesa!==despesa);
+  Object.values(DATA.gastosFixosAjustes).forEach(mesObj=>{ delete mesObj[despesa]; });
+  closeModal('modalFixo');
+  fullRender();
+  if(isConfigured()){
+    try{ await apiPost({ action:'deleteGastoFixo', despesa }); showToast('Excluído da planilha ✓'); }
+    catch(err){ showToast('Excluído aqui, mas falhou ao salvar: ' + err.message, true); }
+  } else {
+    showToast('Excluído nesta tela.');
+  }
 }
 
 let ajusteAtual = { cartao:null, mes:null };
@@ -1076,10 +1199,14 @@ async function fetchReservaLedger(){
         DATA.faturaAjustes = { Fred:{...json.faturaAjustes.Fred}, Janyne:{...json.faturaAjustes.Janyne} };
         liveStatus.ajustes = 'live';
       }
+      if(json.gastosFixosAjustes){
+        DATA.gastosFixosAjustes = json.gastosFixosAjustes;
+      }
       liveStatus.reserva = 'live';
       renderGoals();
       renderKpiMes();
       renderChartProjecao();
+      renderFixos();
     }
   }catch(err){ liveStatus.reserva = 'cached'; }
 }
