@@ -51,6 +51,9 @@
 
 <div class="footer">Se alguma aba der erro, o nome dela provavelmente é diferente do que eu supus — me diga o nome exato como aparece na aba do Google Sheets.</div>
 
+<button id="copyAllBtn" style="margin-top:14px; background:#5eead4; color:#0f1115; border:none; padding:10px 18px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer;">📋 Copiar dados de todas as abas (cole no chat do Claude)</button>
+<div id="copyStatus" style="margin-top:8px; font-size:12px; color:var(--muted);"></div>
+
 <script>
 const SHEET_ID = "18V1ToE0wGC6jBhQQ3KVkH2mbMDCkKwQ5QDpQ0S6jn9U";
 const CANDIDATE_TABS = ["Dashboard", "Painel", "Reserva Financeira", "GASTOS TOTAIS", "cartão fred", "cartão janyne"];
@@ -117,6 +120,54 @@ async function selectTab(name){
     panelEl.innerHTML = `<div class="err-box">Não consegui carregar a aba "<b>${name}</b>".<br>Motivo: ${err.message}<br><br>Verifique o nome exato da aba (maiúsculas/acentos importam) e me avise.</div>`;
   }
 }
+
+function tableToText(sheetName, table){
+  const cols = table.cols.map((c,i) => c.label || c.id || `Col${i+1}`);
+  let out = `=== ABA: ${sheetName} ===\n`;
+  out += `Colunas: ${cols.join(' | ')}\n`;
+  table.rows.slice(0, 200).forEach(r => {
+    const vals = (r.c || []).map(cell => {
+      if(!cell) return '';
+      const v = cell.f !== undefined && cell.f !== null ? cell.f : cell.v;
+      return v === null || v === undefined ? '' : v;
+    });
+    if(vals.some(v => v !== '')) out += vals.join(' | ') + '\n';
+  });
+  return out + '\n';
+}
+
+async function copyAllTabs(){
+  const statusEl = document.getElementById('copyStatus');
+  statusEl.textContent = 'Buscando todas as abas...';
+  let fullText = 'DADOS DA PLANILHA — CONTROLE FINANCEIRO\n\n';
+  for(const name of CANDIDATE_TABS){
+    try{
+      let table = results[name];
+      if(!table){ table = await fetchSheet(name); results[name] = table; }
+      fullText += tableToText(name, table);
+    }catch(err){
+      fullText += `=== ABA: ${name} ===\nERRO ao carregar: ${err.message}\n\n`;
+    }
+  }
+  try{
+    await navigator.clipboard.writeText(fullText);
+    statusEl.textContent = '✓ Copiado! Agora é só colar no chat com o Claude.';
+    statusEl.style.color = 'var(--ok)';
+  }catch(e){
+    statusEl.textContent = 'Não consegui copiar automaticamente. Selecione e copie o texto abaixo:';
+    const ta = document.createElement('textarea');
+    ta.value = fullText;
+    ta.style.width = '100%';
+    ta.style.height = '200px';
+    ta.style.marginTop = '8px';
+    ta.style.background = '#14171e';
+    ta.style.color = 'var(--text)';
+    ta.style.border = '1px solid var(--line)';
+    statusEl.parentElement.appendChild(ta);
+  }
+}
+
+document.getElementById('copyAllBtn').addEventListener('click', copyAllTabs);
 
 async function init(){
   for(const name of CANDIDATE_TABS){
