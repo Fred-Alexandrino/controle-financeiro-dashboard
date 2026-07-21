@@ -2,193 +2,791 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Explorador — Controle Financeiro</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Caderneta — Controle Financeiro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
-  :root{
-    --bg:#0f1115; --panel:#171a21; --line:#262b36;
-    --text:#e8eaed; --muted:#8b93a3;
-    --ok:#4ade80; --err:#f87171; --accent:#5eead4;
-  }
-  *{box-sizing:border-box;}
-  body{
-    margin:0; background:var(--bg); color:var(--text);
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-    padding:24px;
-  }
-  h1{font-size:20px; margin:0 0 4px;}
-  .sub{color:var(--muted); font-size:13px; margin-bottom:20px;}
-  .tabs{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;}
-  .tab-btn{
-    background:var(--panel); border:1px solid var(--line); color:var(--text);
-    padding:8px 14px; border-radius:8px; font-size:13px; cursor:pointer;
-  }
-  .tab-btn.active{border-color:var(--accent); color:var(--accent);}
-  .status{font-size:12px; margin-left:6px;}
-  .status.ok{color:var(--ok);}
-  .status.err{color:var(--err);}
-  .panel{
-    background:var(--panel); border:1px solid var(--line); border-radius:10px;
-    padding:16px; overflow:auto; max-height:70vh;
-  }
-  table{border-collapse:collapse; width:100%; font-size:12px;}
-  th,td{border:1px solid var(--line); padding:6px 8px; text-align:left; white-space:nowrap;}
-  th{background:#1d212b; color:var(--accent); position:sticky; top:0;}
-  tr:nth-child(even) td{background:#14171e;}
-  .err-box{color:var(--err); font-size:13px; line-height:1.6;}
-  .meta{color:var(--muted); font-size:12px; margin-bottom:10px;}
-  .footer{margin-top:16px; font-size:12px; color:var(--muted);}
-  code{background:#1d212b; padding:1px 5px; border-radius:4px;}
+:root{
+  --paper:#F1ECDD;
+  --paper-2:#E9E2CC;
+  --cover:#1E3A2F;
+  --cover-2:#264A3B;
+  --brass:#B8935B;
+  --brass-light:#D8B98A;
+  --ink:#2B2620;
+  --ink-soft:#5B5346;
+  --sage:#6E8272;
+  --rust:#A6402F;
+  --rust-bg:#F4E2DD;
+  --green-bg:#E1EBE3;
+  --line:#D8CFB6;
+  --card:#FBF8EF;
+  --shadow: 0 2px 10px rgba(30,58,47,.08);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:'Inter',sans-serif;
+  background-image:
+    linear-gradient(var(--line) 1px, transparent 1px);
+  background-size: 100% 42px;
+  background-attachment:local;
+}
+.wrap{max-width:1240px; margin:0 auto; padding:0 20px 60px;}
+
+/* HEADER — book cover strip */
+.cover{
+  background: linear-gradient(135deg, var(--cover), var(--cover-2));
+  color:var(--paper);
+  padding:28px 20px 34px;
+  border-bottom:6px solid var(--brass);
+  position:relative;
+  overflow:hidden;
+}
+.cover::after{
+  content:"";
+  position:absolute; inset:0;
+  background: repeating-linear-gradient(90deg, rgba(255,255,255,.03) 0 1px, transparent 1px 40px);
+  pointer-events:none;
+}
+.cover-inner{max-width:1240px; margin:0 auto; display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:16px; position:relative;}
+.cover h1{
+  font-family:'Fraunces', serif; font-weight:700; font-size:34px; margin:0 0 4px;
+  letter-spacing:.2px;
+}
+.cover .subtitle{color:var(--brass-light); font-size:14px; margin:0; font-weight:500;}
+.stamp{
+  display:flex; align-items:center; gap:10px; font-family:'IBM Plex Mono',monospace; font-size:11px;
+}
+.stamp-badge{
+  border:2px solid var(--brass); color:var(--brass-light); padding:6px 12px; border-radius:999px;
+  display:flex; align-items:center; gap:6px; transform:rotate(-2deg); font-weight:600; letter-spacing:.5px;
+}
+.dot{width:7px; height:7px; border-radius:50%; background:#5FD08A; box-shadow:0 0 6px #5FD08A;}
+.dot.stale{background:var(--brass-light); box-shadow:none;}
+#refreshBtn{
+  background:transparent; border:1px solid rgba(255,255,255,.4); color:var(--paper);
+  padding:6px 12px; border-radius:999px; font-family:'IBM Plex Mono',monospace; font-size:11px; cursor:pointer;
+}
+#refreshBtn:hover{background:rgba(255,255,255,.1);}
+
+/* FILTER BAR */
+.filterbar{
+  display:flex; gap:14px; flex-wrap:wrap; align-items:center;
+  background:var(--card); border:1px solid var(--line); border-radius:12px;
+  padding:14px 18px; margin:-20px 0 24px; box-shadow:var(--shadow); position:relative; z-index:2;
+}
+.filterbar label{font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:var(--ink-soft); font-weight:600; margin-right:6px;}
+.filterbar select, .filterbar input[type=text]{
+  font-family:'IBM Plex Mono',monospace; font-size:13px; padding:7px 10px; border-radius:7px;
+  border:1px solid var(--line); background:var(--paper); color:var(--ink);
+}
+.chip-group{display:flex; gap:6px;}
+.chip{
+  padding:6px 13px; border-radius:999px; border:1px solid var(--line); background:var(--paper);
+  font-size:12px; font-weight:600; cursor:pointer; color:var(--ink-soft);
+}
+.chip.active{background:var(--cover); color:var(--paper); border-color:var(--cover);}
+
+/* SECTION TITLES */
+.section-title{
+  font-family:'Fraunces', serif; font-weight:600; font-size:20px; margin:36px 0 14px;
+  display:flex; align-items:center; gap:10px; color:var(--cover);
+}
+.section-title .n{
+  font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--brass); border:1px solid var(--brass);
+  padding:2px 8px; border-radius:5px; font-weight:700;
+}
+.live-tag{font-family:'IBM Plex Mono',monospace; font-size:10px; padding:2px 7px; border-radius:5px; margin-left:auto; font-weight:600;}
+.live-tag.live{background:var(--green-bg); color:#1F6B3C;}
+.live-tag.cached{background:#F1E7CE; color:#8A6A24;}
+
+/* KPI CARDS */
+.kpi-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px;}
+.kpi-card{
+  background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px 18px;
+  box-shadow:var(--shadow); position:relative; border-left:4px solid var(--brass);
+}
+.kpi-card.neg{border-left-color:var(--rust);}
+.kpi-card .label{font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:var(--ink-soft); font-weight:600; margin-bottom:8px;}
+.kpi-card .value{font-family:'IBM Plex Mono',monospace; font-size:23px; font-weight:700; color:var(--cover);}
+.kpi-card.neg .value{color:var(--rust);}
+.kpi-card .sub{font-size:11px; color:var(--ink-soft); margin-top:4px;}
+
+/* PANELS */
+.panel{
+  background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px;
+  box-shadow:var(--shadow);
+}
+.grid-2{display:grid; grid-template-columns:1.3fr 1fr; gap:18px;}
+@media (max-width:860px){ .grid-2{grid-template-columns:1fr;} }
+
+/* GOALS */
+.goal{border:1px dashed var(--line); border-radius:10px; padding:14px 16px; margin-bottom:12px; background:var(--paper-2);}
+.goal-head{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;}
+.goal-head .name{font-weight:700; font-family:'Fraunces',serif; font-size:16px; color:var(--cover);}
+.goal-head .target{font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--ink-soft);}
+.goal-bar-track{height:8px; background:var(--line); border-radius:99px; overflow:hidden; margin:8px 0 6px;}
+.goal-bar-fill{height:100%; background:linear-gradient(90deg, var(--brass), var(--cover));}
+.goal-meta{display:flex; justify-content:space-between; font-size:12px; color:var(--ink-soft); font-family:'IBM Plex Mono',monospace;}
+
+.reco-list{list-style:none; margin:14px 0 0; padding:0; display:flex; flex-direction:column; gap:8px;}
+.reco-list li{
+  font-size:13px; line-height:1.5; padding:10px 14px; background:var(--green-bg); border-radius:8px;
+  border-left:3px solid var(--sage);
+}
+.reco-list li.alert{background:var(--rust-bg); border-left-color:var(--rust);}
+
+/* TABLE */
+.table-controls{display:flex; gap:10px; margin-bottom:12px; flex-wrap:wrap; align-items:center;}
+table{width:100%; border-collapse:collapse; font-size:13px;}
+thead th{
+  text-align:left; padding:10px 12px; background:var(--cover); color:var(--paper);
+  font-family:'IBM Plex Mono',monospace; font-size:11px; text-transform:uppercase; letter-spacing:.4px;
+  cursor:pointer; user-select:none; position:sticky; top:0;
+}
+thead th:hover{background:var(--cover-2);}
+tbody td{padding:9px 12px; border-bottom:1px solid var(--line);}
+tbody tr:hover{background:var(--paper-2);}
+.table-scroll{max-height:480px; overflow:auto; border-radius:8px; border:1px solid var(--line);}
+.cat-chip{
+  display:inline-block; padding:2px 9px; border-radius:999px; font-size:11px; font-weight:600; color:#fff;
+}
+.mono{font-family:'IBM Plex Mono',monospace;}
+.amount{font-family:'IBM Plex Mono',monospace; font-weight:600;}
+
+.fixos-list{display:grid; grid-template-columns:1fr 1fr; gap:0 24px;}
+.fixos-row{display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px dotted var(--line); font-size:13px;}
+.fixos-row .amount{color:var(--cover);}
+@media (max-width:640px){.fixos-list{grid-template-columns:1fr;}}
+
+.chart-box{position:relative;}
+footer{margin-top:50px; padding-top:20px; border-top:1px solid var(--line); font-size:12px; color:var(--ink-soft); text-align:center;}
+footer a{color:var(--cover);}
 </style>
 </head>
 <body>
 
-<h1>Explorador — Controle Financeiro</h1>
-<div class="sub">Conectado ao vivo na sua planilha Google Sheets. Objetivo: revelar as colunas reais de cada aba para eu montar o dashboard definitivo.</div>
+<div class="cover">
+  <div class="cover-inner">
+    <div>
+      <h1>Caderneta Financeira</h1>
+      <p class="subtitle">Controle de gastos e reserva — Fred &amp; Janyne · projeção de 13 meses a partir de ago./26</p>
+    </div>
+    <div class="stamp">
+      <span class="stamp-badge"><span class="dot" id="liveDot"></span> <span id="liveText">verificando…</span></span>
+      <button id="refreshBtn">↻ atualizar agora</button>
+    </div>
+  </div>
+</div>
 
-<div class="tabs" id="tabs"></div>
-<div class="meta" id="meta"></div>
-<div class="panel" id="panel">Carregando...</div>
+<div class="wrap">
 
-<div class="footer">Se alguma aba der erro, o nome dela provavelmente é diferente do que eu supus — me diga o nome exato como aparece na aba do Google Sheets.</div>
+  <div class="filterbar">
+    <div>
+      <label>Mês selecionado</label>
+      <select id="mesSelect"></select>
+    </div>
+    <div>
+      <label>Cartão</label>
+      <div class="chip-group" id="cardChips">
+        <span class="chip active" data-card="todos">Todos</span>
+        <span class="chip" data-card="Fred">Fred</span>
+        <span class="chip" data-card="Janyne">Janyne</span>
+      </div>
+    </div>
+    <div style="margin-left:auto;">
+      <label>Buscar lançamento</label>
+      <input type="text" id="searchInput" placeholder="ex: amazon, raia...">
+    </div>
+  </div>
 
-<button id="copyAllBtn" style="margin-top:14px; background:#5eead4; color:#0f1115; border:none; padding:10px 18px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer;">📋 Copiar dados de todas as abas (cole no chat do Claude)</button>
-<div id="copyStatus" style="margin-top:8px; font-size:12px; color:var(--muted);"></div>
+  <div class="section-title">01 &nbsp;Panorama geral <span class="live-tag" id="tagDashboard"></span></div>
+  <div class="kpi-grid" id="kpiGeral"></div>
+
+  <div class="section-title">02 &nbsp;Mês selecionado: <span id="mesLabelTitle" style="color:var(--brass); margin-left:4px;"></span></div>
+  <div class="kpi-grid" id="kpiMes"></div>
+
+  <div class="section-title">03 &nbsp;Projeção mensal (13 meses) <span class="live-tag" id="tagPainel"></span></div>
+  <div class="panel chart-box"><canvas id="chartProjecao" height="90"></canvas></div>
+
+  <div class="section-title">04 &nbsp;Reserva &amp; metas</div>
+  <div class="grid-2">
+    <div class="panel">
+      <div id="goalsBox"></div>
+      <ul class="reco-list" id="recoList"></ul>
+    </div>
+    <div class="panel chart-box">
+      <div style="font-size:12px; color:var(--ink-soft); font-weight:600; text-transform:uppercase; margin-bottom:10px;">Como dividir R$ / mês guardado</div>
+      <canvas id="chartAlocacao"></canvas>
+    </div>
+  </div>
+
+  <div class="section-title">05 &nbsp;Gasto em aberto por categoria</div>
+  <div class="panel chart-box"><canvas id="chartCategoria" height="110"></canvas></div>
+
+  <div class="section-title">06 &nbsp;Gastos fixos mensais <span class="live-tag" id="tagFixos"></span></div>
+  <div class="panel">
+    <div class="fixos-list" id="fixosList"></div>
+    <div style="text-align:right; margin-top:14px; font-family:'IBM Plex Mono',monospace; font-weight:700; color:var(--cover);">Total: <span id="fixosTotal"></span></div>
+  </div>
+
+  <div class="section-title">07 &nbsp;Lançamentos em aberto (cartões) <span class="live-tag" id="tagCartoes"></span></div>
+  <div class="panel">
+    <div class="table-controls">
+      <span style="font-size:12px; color:var(--ink-soft);" id="tableCount"></span>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th data-k="cartao">Cartão</th>
+            <th data-k="estabelecimento">Estabelecimento</th>
+            <th data-k="categoria">Categoria</th>
+            <th data-k="parcelasRestantes">Parc. rest.</th>
+            <th data-k="valorParcela">Valor parcela</th>
+            <th data-k="valorAberto">Em aberto</th>
+          </tr>
+        </thead>
+        <tbody id="txBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <footer>
+    Dados vindos de <a href="https://docs.google.com/spreadsheets/d/18V1ToE0wGC6jBhQQ3KVkH2mbMDCkKwQ5QDpQ0S6jn9U/edit" target="_blank">Controle Financeiro (Google Sheets)</a> ·
+    atualiza automaticamente a cada 60s enquanto a página está aberta
+  </footer>
+</div>
 
 <script>
-const SHEET_ID = "18V1ToE0wGC6jBhQQ3KVkH2mbMDCkKwQ5QDpQ0S6jn9U";
-const CANDIDATE_TABS = ["Dashboard", "Painel", "Reserva Financeira", "GASTOS TOTAIS", "cartão fred", "cartão janyne"];
-
-const tabsEl = document.getElementById('tabs');
-const panelEl = document.getElementById('panel');
-const metaEl = document.getElementById('meta');
-const results = {};
-
-function buttonFor(name){
-  const b = document.createElement('button');
-  b.className = 'tab-btn';
-  b.textContent = name;
-  b.onclick = () => selectTab(name);
-  b.dataset.name = name;
-  tabsEl.appendChild(b);
-  return b;
+/* ================= FORMAT HELPERS ================= */
+const fmt = new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
+const fmt0 = new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0});
+function n(v){ if(v===null||v===undefined) return 0; if(typeof v==='number') return v;
+  const s = String(v).replace(/[R$\s]/g,'').replace(/\./g,'').replace(',','.').replace(/[()]/g,'');
+  const f = parseFloat(s); return isNaN(f) ? 0 : (String(v).includes('(') ? -f : f);
 }
 
-async function fetchSheet(sheetName){
+const CATEGORY_COLORS = {
+  'Alimentação':'#A6402F','Casa':'#1E3A2F','Compras':'#5B7B93','Eletrônicos':'#7A5980',
+  'Lazer':'#3E6D5C','Saúde':'#B8935B','Serviços':'#8C5E3C','Streaming':'#C9A227',
+  'Vestuário':'#6E8272','Outros':'#9A9184'
+};
+function catColor(c){ return CATEGORY_COLORS[c] || '#9A9184'; }
+
+/* ================= SNAPSHOT DATA (fallback confiável) ================= */
+const SNAPSHOT = {
+  kpisGerais: { faturaAgo:13325.50, totalPagarCartoes:40481.94, gastoFixoMensal:14500.00, desembolsoTotal:228981.94 },
+  cardsSummary: [
+    {nome:'Fred', fatura:4965.03, totalPagar:19374.09, emAberto:14409.06},
+    {nome:'Janyne', fatura:8360.47, totalPagar:21107.85, emAberto:12747.38}
+  ],
+  renda: { janyne:13600, fred:8500, total:22100 },
+  planoPoupanca: { taxaAlvo:0.20, mesesCobertura:6, metaGuardarMes:4420, splitEmergencia:2210, splitViagens:1326, splitOutros:884 },
+  metas: [
+    {objetivo:'Reserva de emergência', valorAlvo:87000, guardarMes:2210, prazoMeses:40},
+    {objetivo:'Viagens', valorAlvo:25000, guardarMes:1326, prazoMeses:19},
+    {objetivo:'Outros / investimentos', valorAlvo:null, guardarMes:884, prazoMeses:null}
+  ],
+  recomendacoes: [
+    {texto:'Regra saudável: guardar ~20% da renda — 50% emergência, 30% viagens, 20% outros/investimentos.', alert:false},
+    {texto:'Reserva de emergência ideal = 6 meses de gastos fixos (R$ 87.000).', alert:false},
+    {texto:'Em agosto a fatura dos cartões é alta e a sobra do mês fica negativa (-R$ 5.726).', alert:true},
+    {texto:'Na média dos 13 meses projetados sobra ~R$ 4.486/mês — cobre a meta de R$ 4.420.', alert:false},
+    {texto:'Evite novos parcelamentos até a fatura baixar; aí a poupança mensal fica confortável.', alert:true}
+  ],
+  projecaoMensal: [
+    {n:1,mes:'ago.-26',fixos:14500.00,fred:4965.03,janyne:8360.47,total:27825.50},
+    {n:2,mes:'set.-26',fixos:14500.00,fred:3765.46,janyne:3697.27,total:21962.73},
+    {n:3,mes:'out.-26',fixos:14500.00,fred:3016.01,janyne:3204.39,total:20720.40},
+    {n:4,mes:'nov.-26',fixos:14500.00,fred:1913.42,janyne:1204.39,total:17617.81},
+    {n:5,mes:'dez.-26',fixos:14500.00,fred:1868.46,janyne:1204.39,total:17572.85},
+    {n:6,mes:'jan.-27',fixos:14500.00,fred:1728.78,janyne:882.40,total:17111.18},
+    {n:7,mes:'fev.-27',fixos:14500.00,fred:782.41,janyne:830.58,total:16112.99},
+    {n:8,mes:'mar.-27',fixos:14500.00,fred:705.42,janyne:413.68,total:15619.10},
+    {n:9,mes:'abr.-27',fixos:14500.00,fred:314.55,janyne:392.01,total:15206.56},
+    {n:10,mes:'mai.-27',fixos:14500.00,fred:314.55,janyne:242.01,total:15056.56},
+    {n:11,mes:'jun.-27',fixos:14500.00,fred:0.00,janyne:225.42,total:14725.42},
+    {n:12,mes:'jul.-27',fixos:14500.00,fred:0.00,janyne:225.42,total:14725.42},
+    {n:13,mes:'ago.-27',fixos:14500.00,fred:0.00,janyne:225.42,total:14725.42}
+  ],
+  gastosFixos: [
+    {despesa:'Enel',valor:320},{despesa:'cacege',valor:310},{despesa:'gás',valor:260},{despesa:'vivo',valor:310},
+    {despesa:'condomínio',valor:570},{despesa:'financiamento ap',valor:1900},{despesa:'financiamento usina',valor:2500},
+    {despesa:'faxina',valor:450},{despesa:'Unimed Janyne e Sofia',valor:1580},{despesa:'Camed Fred',valor:630},
+    {despesa:'Fies Fred',valor:540},{despesa:'Basquete',valor:150},{despesa:'Lucas',valor:600},{despesa:'Vôlei',valor:230},
+    {despesa:'Gasolina',valor:700},{despesa:'Pediatra Sofia',valor:500},{despesa:'Alimentação (Estimativa)',valor:2000},
+    {despesa:'Contador',valor:350},{despesa:'Imposto',valor:600}
+  ],
+  cartaoFred: [
+    ['AMAZONMKTPLC NUTRELINE SAO PAULO BRA',5,54.43,272.15,'Saúde'],
+    ['MERCADOLIVRE MERCADOL SAO CARLOS BRA',0,29.58,0.00,'Compras'],
+    ['ARENA 4 PLAY FORTALEZA BRA',1,345.00,345.00,'Lazer'],
+    ['RD SAUDE ONLINE SAO PAULO BRA',1,61.72,61.72,'Saúde'],
+    ['AMAZON BR SAO PAULO BRA',4,38.93,155.72,'Compras'],
+    ['CAR WASH ECOLOGICO FORTALEZA BRA',1,243.33,243.33,'Serviços'],
+    ['AMAZON MARKETPLACE SAO PAULO BRA',0,89.54,0.00,'Compras'],
+    ['ECOMMERCE UN UNDERARMO SAO PAULO BRA',7,49.99,349.93,'Vestuário'],
+    ['CP PARC DUO GOURMET',2,141.60,283.20,'Alimentação'],
+    ['GLOBO GLOBOPLAY RIO DE JANEIR BRA',9,22.90,206.10,'Streaming'],
+    ['MERCADOLIVRE MERCADOL DOIS CORREGO BRA',0,69.84,0.00,'Compras'],
+    ['ELECTROLUX ELECTROLUX- CURITIBA BRA',7,251.21,1758.47,'Casa'],
+    ['IBYTE F02 FORTALEZA BRA',9,291.65,2624.85,'Eletrônicos'],
+    ['AMAZONMKTPLC EVEVARIED SAO PAULO BRA',0,37.99,0.00,'Compras'],
+    ['MERCADOLIVRE ULTRAGAZ OSASCO BRA',1,34.22,34.22,'Casa'],
+    ['AMAZON MARKETPLACE BR SAO PAULO BRA',7,39.68,277.76,'Compras'],
+    ['AMAZONMKTPLC ATTACKSHA SAO PAULO BRA',6,50.00,300.00,'Compras'],
+    ['ZP RSV RODRIGO HUERTA Sao Paulo BRA',3,44.96,134.88,'Vestuário'],
+    ['RD SAUDE ONLINE SAO PAULO BRA',0,46.15,0.00,'Saúde'],
+    ['AMAZONMKTPLC HADYLAMOT SAO PAULO BRA',1,33.54,33.54,'Compras'],
+    ['AMAZON RETAIL BR CPI SAO PAULO BRA',6,26.99,161.94,'Compras'],
+    ['AMAZONMKTPLC NUTRELINE SAO PAULO BRA',2,46.31,92.62,'Saúde'],
+    ['AMAZONMKTPLC CFGCOMERC SAO PAULO BRA',0,32.97,0.00,'Compras'],
+    ['GASTROCLINICA FORTALEZA BRA',2,733.33,1466.66,'Saúde'],
+    ['AMAZON MARKETPLACE SAO PAULO BRA',1,31.64,31.64,'Compras'],
+    ['FILA BR SAUDADES SC',7,49.99,349.93,'Vestuário'],
+    ['AMAZON MARKETPLACE SAO PAULO BRA',5,50.49,252.45,'Compras'],
+    ['AMAZONMKTPLC PLANETAIM SAO PAULO BRA',0,25.50,0.00,'Compras'],
+    ['SHOPEE ViliCaladosOfi Franco Da Roc BRA',5,12.51,62.55,'Compras'],
+    ['SergioPiresDe FORTALEZA BRA',5,750.00,3750.00,'Serviços'],
+    ['MERCADOLIVRE 2PRODUTOS EXTREMA BRA',5,20.88,104.40,'Compras'],
+    ['AMAZON MARKETPLACE SAO PAULO BRA',5,58.06,290.30,'Compras'],
+    ['AMAZON RETAIL BR CPI SAO PAULO BRA',2,35.51,71.02,'Compras'],
+    ['AMAZONMKTPLC ANKERINNO SAO PAULO BRA',4,53.93,215.72,'Eletrônicos'],
+    ['Disney Plus SAO PAULO BRA',4,46.82,187.28,'Streaming'],
+    ['MAGALU FL 727 FORTALEZA BRA',0,529.20,0.00,'Compras'],
+    ['APIGUANA FORTALEZA BRA',0,86.47,0.00,'Casa'],
+    ['UPAR GAMES FORTALEZA BRA',2,145.84,291.68,'Lazer'],
+    ['outros',0,252.33,0.00,'Outros']
+  ],
+  cartaoJanyne: [
+    ['JEEP FORTALE-C',0,251.25,0.00,'Serviços'],
+    ['WsAmbientacoes',0,100.00,0.00,'Casa'],
+    ['CRIOGENIA FORT',6,416.90,2501.40,'Saúde'],
+    ['RAIA DROGASIL',0,167.96,0.00,'Saúde'],
+    ['MERCADINHO S-C',0,71.13,0.00,'Alimentação'],
+    ['AMAZONMKTPLCD',1,34.25,34.25,'Compras'],
+    ['RDSAUDE ONLINE',0,80.23,0.00,'Saúde'],
+    ['DROGASIL 285-C',0,64.87,0.00,'Saúde'],
+    ['ADN CONCURSOS',9,16.59,149.31,'Serviços'],
+    ['RAIA DROGASIL',0,60.46,0.00,'Saúde'],
+    ['RAIA DROGASIL',0,67.12,0.00,'Saúde'],
+    ['ITAUSHOP',12,225.42,2705.04,'Compras'],
+    ['PAMoveis',2,2000.00,4000.00,'Casa'],
+    ['BLU COLCHO',4,133.37,533.48,'Casa'],
+    ['CLIMARIO',4,188.62,754.48,'Casa'],
+    ['BEBELE',0,98.69,0.00,'Compras'],
+    ['MERCADOLIVRE A',7,21.67,151.69,'Compras'],
+    ['AMAZONMKTPLC L',5,51.82,259.10,'Compras'],
+    ['SUMUPH.F COME',8,150.00,1200.00,'Compras'],
+    ['RAIA DROGASIL',1,85.44,85.44,'Saúde'],
+    ['DROGASIL 2853F',1,102.09,102.09,'Saúde'],
+    ['RAIA DROGASIL',1,83.39,83.39,'Saúde'],
+    ['RAIA DROGASIL',1,40.66,40.66,'Saúde'],
+    ['INSIDER COMEI',1,147.05,147.05,'Vestuário'],
+    ['BEC11',0,77.88,0.00,'Compras'],
+    ['outros',0,3623.61,0.00,'Outros']
+  ]
+};
+SNAPSHOT.cardsSummary.push({nome:'Total', fatura:SNAPSHOT.cardsSummary[0].fatura+SNAPSHOT.cardsSummary[1].fatura,
+  totalPagar:SNAPSHOT.cardsSummary[0].totalPagar+SNAPSHOT.cardsSummary[1].totalPagar,
+  emAberto:SNAPSHOT.cardsSummary[0].emAberto+SNAPSHOT.cardsSummary[1].emAberto});
+SNAPSHOT.gastosFixosTotal = SNAPSHOT.gastosFixos.reduce((s,x)=>s+x.valor,0) + SNAPSHOT.cardsSummary[0].fatura + SNAPSHOT.cardsSummary[1].fatura;
+
+let DATA = JSON.parse(JSON.stringify(SNAPSHOT));
+let liveStatus = { dashboard:'cached', painel:'cached', fixos:'cached', cartoes:'cached' };
+let state = { mes: DATA.projecaoMensal[0].mes, cardFiltro:'todos', search:'', sortKey:'valorAberto', sortDir:'desc' };
+
+/* ================= TRANSACTIONS (flatten) ================= */
+function buildTransactions(){
+  const rows = [];
+  DATA.cartaoFred.forEach(r=>rows.push({cartao:'Fred', estabelecimento:r[0], parcelasRestantes:r[1], valorParcela:r[2], valorAberto:r[3], categoria:r[4]}));
+  DATA.cartaoJanyne.forEach(r=>rows.push({cartao:'Janyne', estabelecimento:r[0], parcelasRestantes:r[1], valorParcela:r[2], valorAberto:r[3], categoria:r[4]}));
+  return rows;
+}
+let TX = buildTransactions();
+
+/* ================= CHARTS ================= */
+let chartProjecao, chartAlocacao, chartCategoria;
+Chart.defaults.font.family = "'Inter',sans-serif";
+Chart.defaults.color = '#5B5346';
+
+function renderChartProjecao(){
+  const labels = DATA.projecaoMensal.map(r=>r.mes);
+  const selIdx = DATA.projecaoMensal.findIndex(r=>r.mes===state.mes);
+  const mkAlpha = (base, idx) => idx===selIdx ? base : base+'99';
+  const ctx = document.getElementById('chartProjecao');
+  if(chartProjecao) chartProjecao.destroy();
+  chartProjecao = new Chart(ctx, {
+    type:'bar',
+    data:{ labels, datasets:[
+      {label:'Fixos', data:DATA.projecaoMensal.map(r=>r.fixos), backgroundColor:'#1E3A2F', stack:'s'},
+      {label:'Cartão Fred', data:DATA.projecaoMensal.map(r=>r.fred), backgroundColor:'#B8935B', stack:'s'},
+      {label:'Cartão Janyne', data:DATA.projecaoMensal.map(r=>r.janyne), backgroundColor:'#A6402F', stack:'s'}
+    ]},
+    options:{
+      responsive:true,
+      onClick:(e,els)=>{ if(els.length){ state.mes = DATA.projecaoMensal[els[0].index].mes; document.getElementById('mesSelect').value = state.mes; fullRender(); } },
+      plugins:{ legend:{position:'bottom', labels:{usePointStyle:true, boxWidth:8}},
+        tooltip:{ callbacks:{ label:(c)=> `${c.dataset.label}: ${fmt.format(c.parsed.y)}` } } },
+      scales:{ x:{grid:{display:false}}, y:{ticks:{callback:v=>fmt0.format(v)}, grid:{color:'#E4DCC4'}} }
+    }
+  });
+}
+
+function renderChartAlocacao(){
+  const ctx = document.getElementById('chartAlocacao');
+  if(chartAlocacao) chartAlocacao.destroy();
+  const p = DATA.planoPoupanca;
+  chartAlocacao = new Chart(ctx, {
+    type:'doughnut',
+    data:{ labels:['Reserva de emergência','Viagens','Outros / investimentos'],
+      datasets:[{ data:[p.splitEmergencia,p.splitViagens,p.splitOutros], backgroundColor:['#1E3A2F','#B8935B','#6E8272'], borderColor:'#FBF8EF', borderWidth:3 }] },
+    options:{ plugins:{ legend:{position:'bottom', labels:{usePointStyle:true,boxWidth:8,font:{size:11}}},
+      tooltip:{callbacks:{label:(c)=>`${c.label}: ${fmt.format(c.parsed)} (${Math.round(c.parsed/p.metaGuardarMes*100)}%)`}} } }
+  });
+}
+
+function renderChartCategoria(){
+  const filtered = state.cardFiltro==='todos' ? TX : TX.filter(t=>t.cartao===state.cardFiltro);
+  const byCat = {};
+  filtered.forEach(t=>{ byCat[t.categoria] = (byCat[t.categoria]||0) + n(t.valorAberto); });
+  const entries = Object.entries(byCat).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  const ctx = document.getElementById('chartCategoria');
+  if(chartCategoria) chartCategoria.destroy();
+  chartCategoria = new Chart(ctx, {
+    type:'bar',
+    data:{ labels:entries.map(e=>e[0]), datasets:[{ data:entries.map(e=>e[1]), backgroundColor:entries.map(e=>catColor(e[0])), borderRadius:4 }] },
+    options:{ indexAxis:'y', plugins:{legend:{display:false}, tooltip:{callbacks:{label:(c)=>fmt.format(c.parsed.x)}}},
+      scales:{ x:{ticks:{callback:v=>fmt0.format(v)}, grid:{color:'#E4DCC4'}}, y:{grid:{display:false}} } }
+  });
+}
+
+/* ================= RENDER SECTIONS ================= */
+function kpiCard(label, value, {neg=false, sub=''}={}){
+  return `<div class="kpi-card ${neg?'neg':''}"><div class="label">${label}</div><div class="value">${value}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+}
+
+function renderKpiGeral(){
+  const k = DATA.kpisGerais;
+  const totalEmAberto = DATA.cardsSummary.find(c=>c.nome==='Total').emAberto;
+  document.getElementById('kpiGeral').innerHTML = [
+    kpiCard('Renda total', fmt.format(DATA.renda.total), {sub:`Janyne ${fmt0.format(DATA.renda.janyne)} + Fred ${fmt0.format(DATA.renda.fred)}`}),
+    kpiCard('Gasto fixo mensal', fmt.format(k.gastoFixoMensal)),
+    kpiCard('Total a pagar (cartões)', fmt.format(k.totalPagarCartoes)),
+    kpiCard('Em aberto (cartões)', fmt.format(totalEmAberto)),
+    kpiCard('Desembolso total (13 meses)', fmt.format(k.desembolsoTotal))
+  ].join('');
+}
+
+function renderKpiMes(){
+  const row = DATA.projecaoMensal.find(r=>r.mes===state.mes) || DATA.projecaoMensal[0];
+  const totalComprometido = row.total;
+  const sobra = DATA.renda.total - totalComprometido;
+  document.getElementById('mesLabelTitle').textContent = state.mes;
+  document.getElementById('kpiMes').innerHTML = [
+    kpiCard('Gastos fixos', fmt.format(row.fixos)),
+    kpiCard('Fatura Fred', fmt.format(row.fred)),
+    kpiCard('Fatura Janyne', fmt.format(row.janyne)),
+    kpiCard('Total comprometido', fmt.format(totalComprometido)),
+    kpiCard(sobra>=0 ? 'Sobra do mês' : 'Falta no mês', fmt.format(Math.abs(sobra)), {neg: sobra<0})
+  ].join('');
+}
+
+function renderGoals(){
+  const box = document.getElementById('goalsBox');
+  box.innerHTML = `<div style="font-size:12px; color:var(--ink-soft); font-weight:600; text-transform:uppercase; margin-bottom:14px;">Metas de reserva · guardando ${fmt.format(DATA.planoPoupanca.metaGuardarMes)}/mês</div>` +
+    DATA.metas.map(m=>{
+      const pct = m.prazoMeses ? Math.max(6, 100 - m.prazoMeses*2) : 100; // ilustrativo de escala de prazo, não saldo atual
+      return `<div class="goal">
+        <div class="goal-head">
+          <span class="name">${m.objetivo}</span>
+          <span class="target">${m.valorAlvo ? fmt.format(m.valorAlvo) : 'contínuo'}</span>
+        </div>
+        <div class="goal-bar-track"><div class="goal-bar-fill" style="width:${pct}%"></div></div>
+        <div class="goal-meta">
+          <span>Guardando ${fmt.format(m.guardarMes)}/mês</span>
+          <span>${m.prazoMeses ? m.prazoMeses+' meses p/ atingir' : 'sem prazo fixo'}</span>
+        </div>
+      </div>`;
+    }).join('') +
+    `<div style="font-size:11px; color:var(--ink-soft); margin-top:6px;">* barra ilustra escala de prazo entre metas, não saldo já guardado (a planilha não registra saldo atual).</div>`;
+}
+
+function renderReco(){
+  document.getElementById('recoList').innerHTML = DATA.recomendacoes.map(r=>
+    `<li class="${r.alert?'alert':''}">${r.texto}</li>`).join('');
+}
+
+function renderFixos(){
+  document.getElementById('fixosList').innerHTML = DATA.gastosFixos.map(f=>
+    `<div class="fixos-row"><span>${f.despesa}</span><span class="amount">${fmt.format(f.valor)}</span></div>`).join('');
+  document.getElementById('fixosTotal').textContent = fmt.format(DATA.gastosFixosTotal);
+}
+
+function renderTable(){
+  let rows = TX;
+  if(state.cardFiltro!=='todos') rows = rows.filter(t=>t.cartao===state.cardFiltro);
+  if(state.search) rows = rows.filter(t=>t.estabelecimento.toLowerCase().includes(state.search.toLowerCase()));
+  rows = [...rows].sort((a,b)=>{
+    let va=a[state.sortKey], vb=b[state.sortKey];
+    if(typeof va==='string'){ va=va.toLowerCase(); vb=vb.toLowerCase(); }
+    if(va<vb) return state.sortDir==='asc'?-1:1;
+    if(va>vb) return state.sortDir==='asc'?1:-1;
+    return 0;
+  });
+  document.getElementById('tableCount').textContent = `${rows.length} lançamento(s)`;
+  document.getElementById('txBody').innerHTML = rows.map(t=>`
+    <tr>
+      <td>${t.cartao}</td>
+      <td>${t.estabelecimento}</td>
+      <td><span class="cat-chip" style="background:${catColor(t.categoria)}">${t.categoria}</span></td>
+      <td class="mono">${t.parcelasRestantes}</td>
+      <td class="amount">${fmt.format(t.valorParcela)}</td>
+      <td class="amount">${fmt.format(t.valorAberto)}</td>
+    </tr>`).join('');
+}
+
+function renderLiveTags(){
+  const map = {tagDashboard:'dashboard', tagPainel:'painel', tagFixos:'fixos', tagCartoes:'cartoes'};
+  Object.entries(map).forEach(([elId,key])=>{
+    const el = document.getElementById(elId);
+    const s = liveStatus[key];
+    el.textContent = s==='live' ? '● ao vivo' : '● dados salvos';
+    el.className = 'live-tag ' + (s==='live' ? 'live' : 'cached');
+  });
+  const anyLive = Object.values(liveStatus).some(v=>v==='live');
+  const allLive = Object.values(liveStatus).every(v=>v==='live');
+  document.getElementById('liveDot').className = 'dot' + (allLive ? '' : ' stale');
+  document.getElementById('liveText').textContent = allLive ? 'ao vivo' : (anyLive ? 'parcialmente ao vivo' : 'dados salvos');
+}
+
+function fullRender(){
+  renderKpiGeral(); renderKpiMes(); renderGoals(); renderReco(); renderFixos(); renderTable();
+  renderChartProjecao(); renderChartAlocacao(); renderChartCategoria(); renderLiveTags();
+}
+
+/* ================= CONTROLS ================= */
+function initControls(){
+  const sel = document.getElementById('mesSelect');
+  sel.innerHTML = DATA.projecaoMensal.map(r=>`<option value="${r.mes}">${r.mes}</option>`).join('');
+  sel.value = state.mes;
+  sel.addEventListener('change', ()=>{ state.mes = sel.value; renderKpiMes(); renderChartProjecao(); });
+
+  document.querySelectorAll('#cardChips .chip').forEach(chip=>{
+    chip.addEventListener('click', ()=>{
+      document.querySelectorAll('#cardChips .chip').forEach(c=>c.classList.remove('active'));
+      chip.classList.add('active');
+      state.cardFiltro = chip.dataset.card;
+      renderTable(); renderChartCategoria();
+    });
+  });
+
+  document.getElementById('searchInput').addEventListener('input', (e)=>{ state.search = e.target.value; renderTable(); });
+
+  document.querySelectorAll('thead th[data-k]').forEach(th=>{
+    th.addEventListener('click', ()=>{
+      const k = th.dataset.k;
+      if(state.sortKey===k) state.sortDir = state.sortDir==='asc'?'desc':'asc';
+      else { state.sortKey=k; state.sortDir='desc'; }
+      renderTable();
+    });
+  });
+
+  document.getElementById('refreshBtn').addEventListener('click', fetchLive);
+}
+
+/* ================= LIVE FETCH (best-effort, com fallback ao snapshot) ================= */
+const SHEET_ID = "18V1ToE0wGC6jBhQQ3KVkH2mbMDCkKwQ5QDpQ0S6jn9U";
+
+async function fetchSheetTable(sheetName){
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
   const res = await fetch(url);
   const text = await res.text();
   const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\);?\s*$/);
-  if(!match) throw new Error("Resposta inesperada do Google (aba pode não existir ou nome não confere).");
+  if(!match) throw new Error('formato inesperado');
   const json = JSON.parse(match[1]);
-  if(json.status === 'error'){
-    const msg = (json.errors && json.errors[0] && json.errors[0].detailed_message) || 'Erro desconhecido';
-    throw new Error(msg);
-  }
+  if(json.status==='error') throw new Error('aba não encontrada');
   return json.table;
 }
-
-function renderTable(table){
-  const cols = table.cols.map((c,i) => c.label || c.id || `Col ${i+1}`);
-  let html = '<table><thead><tr>';
-  cols.forEach(c => html += `<th>${c || '(vazio)'}</th>`);
-  html += '</tr></thead><tbody>';
-  table.rows.slice(0, 60).forEach(r => {
-    html += '<tr>';
-    (r.c || []).forEach(cell => {
-      const val = cell ? (cell.f !== undefined && cell.f !== null ? cell.f : cell.v) : '';
-      html += `<td>${val === null || val === undefined ? '' : val}</td>`;
-    });
-    html += '</tr>';
-  });
-  html += '</tbody></table>';
-  return html;
+function cellText(cell){
+  if(!cell) return '';
+  const v = cell.f!==undefined && cell.f!==null ? cell.f : cell.v;
+  return v===null||v===undefined ? '' : String(v).trim();
 }
-
-async function selectTab(name){
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.name === name));
-  panelEl.innerHTML = 'Carregando...';
-  metaEl.textContent = '';
-  try{
-    let table = results[name];
-    if(!table){
-      table = await fetchSheet(name);
-      results[name] = table;
-    }
-    metaEl.textContent = `${table.cols.length} colunas · ${table.rows.length} linhas (mostrando até 60)`;
-    panelEl.innerHTML = renderTable(table);
-  }catch(err){
-    panelEl.innerHTML = `<div class="err-box">Não consegui carregar a aba "<b>${name}</b>".<br>Motivo: ${err.message}<br><br>Verifique o nome exato da aba (maiúsculas/acentos importam) e me avise.</div>`;
-  }
-}
-
-function tableToText(sheetName, table){
-  const cols = table.cols.map((c,i) => c.label || c.id || `Col${i+1}`);
-  let out = `=== ABA: ${sheetName} ===\n`;
-  out += `Colunas: ${cols.join(' | ')}\n`;
-  table.rows.slice(0, 200).forEach(r => {
-    const vals = (r.c || []).map(cell => {
-      if(!cell) return '';
-      const v = cell.f !== undefined && cell.f !== null ? cell.f : cell.v;
-      return v === null || v === undefined ? '' : v;
-    });
-    if(vals.some(v => v !== '')) out += vals.join(' | ') + '\n';
-  });
-  return out + '\n';
-}
-
-async function copyAllTabs(){
-  const statusEl = document.getElementById('copyStatus');
-  statusEl.textContent = 'Buscando todas as abas...';
-  let fullText = 'DADOS DA PLANILHA — CONTROLE FINANCEIRO\n\n';
-  for(const name of CANDIDATE_TABS){
-    try{
-      let table = results[name];
-      if(!table){ table = await fetchSheet(name); results[name] = table; }
-      fullText += tableToText(name, table);
-    }catch(err){
-      fullText += `=== ABA: ${name} ===\nERRO ao carregar: ${err.message}\n\n`;
+function rowTexts(row){ return (row.c||[]).map(cellText); }
+function findValueAfterLabel(rows, labelStart, skip=0){
+  let count=0;
+  for(const r of rows){
+    const texts = rowTexts(r);
+    for(let i=0;i<texts.length;i++){
+      if(texts[i].toLowerCase().startsWith(labelStart.toLowerCase())){
+        if(count<skip){ count++; continue; }
+        for(let j=i+1;j<texts.length;j++){ if(texts[j]!=='') return texts[j]; }
+      }
     }
   }
-  try{
-    await navigator.clipboard.writeText(fullText);
-    statusEl.textContent = '✓ Copiado! Agora é só colar no chat com o Claude.';
-    statusEl.style.color = 'var(--ok)';
-  }catch(e){
-    statusEl.textContent = 'Não consegui copiar automaticamente. Selecione e copie o texto abaixo:';
-    const ta = document.createElement('textarea');
-    ta.value = fullText;
-    ta.style.width = '100%';
-    ta.style.height = '200px';
-    ta.style.marginTop = '8px';
-    ta.style.background = '#14171e';
-    ta.style.color = 'var(--text)';
-    ta.style.border = '1px solid var(--line)';
-    statusEl.parentElement.appendChild(ta);
-  }
+  return null;
 }
 
-document.getElementById('copyAllBtn').addEventListener('click', copyAllTabs);
-
-async function init(){
-  for(const name of CANDIDATE_TABS){
-    const btn = buttonFor(name);
-    fetchSheet(name).then(table => {
-      results[name] = table;
-      const span = document.createElement('span');
-      span.className = 'status ok';
-      span.textContent = '✓';
-      btn.appendChild(span);
-    }).catch(() => {
-      const span = document.createElement('span');
-      span.className = 'status err';
-      span.textContent = '✗';
-      btn.appendChild(span);
-    });
+async function tryFetchDashboard(){
+  const table = await fetchSheetTable('Dashboard');
+  const rows = table.rows;
+  let headerIdx=-1, headerCols=[];
+  rows.forEach((r,idx)=>{ const texts=rowTexts(r);
+    if(texts.some(t=>t.toUpperCase().includes('FATURA') && t.toUpperCase().includes('AGO'))){ headerIdx=idx; texts.forEach((t,i)=>{ if(t!=='') headerCols.push({i,label:t}); }); }
+  });
+  if(headerIdx<0) throw new Error('cabecalho KPI nao encontrado');
+  const valueRow = rowTexts(rows[headerIdx+1]);
+  const kpis = { faturaAgo:0, totalPagarCartoes:0, gastoFixoMensal:0, desembolsoTotal:0 };
+  headerCols.forEach(hc=>{
+    const label = hc.label.toUpperCase(); const val = n(valueRow[hc.i]);
+    if(label.includes('FATURA')) kpis.faturaAgo = val;
+    else if(label.includes('TOTAL A PAGAR')) kpis.totalPagarCartoes = val;
+    else if(label.includes('GASTO FIXO')) kpis.gastoFixoMensal = val;
+    else if(label.includes('DESEMBOLSO')) kpis.desembolsoTotal = val;
+  });
+  let cardHeaderIdx=-1;
+  rows.forEach((r,idx)=>{ if(rowTexts(r).some(t=>t==='Cartão')) cardHeaderIdx=idx; });
+  const cards=[];
+  if(cardHeaderIdx>=0){
+    for(let k=cardHeaderIdx+1;k<rows.length;k++){
+      const texts = rowTexts(rows[k]).filter(t=>t!=='');
+      if(texts.length<4) break;
+      cards.push({nome:texts[0], fatura:n(texts[1]), totalPagar:n(texts[2]), emAberto:n(texts[3])});
+      if(texts[0].toLowerCase()==='total') break;
+    }
   }
-  selectTab(CANDIDATE_TABS[0]);
+  if(!cards.length) throw new Error('resumo por cartao nao encontrado');
+  return { kpisGerais:kpis, cardsSummary:cards };
 }
 
-init();
+async function tryFetchPainel(){
+  const table = await fetchSheetTable('Painel');
+  const rows = table.rows;
+  const proj = [];
+  rows.forEach(r=>{
+    const texts = rowTexts(r);
+    const nVal = parseInt(texts.find(t=>/^\d{1,2}$/.test(t))||'',10);
+  });
+  // projecao: linhas com padrão n | mes(x.-yy) | fixos | fred | janyne | total
+  for(const r of rows){
+    const texts = rowTexts(r).filter(t=>t!=='');
+    if(texts.length>=6 && /^\d{1,2}$/.test(texts[0]) && /^[a-zç]{3}\.-\d{2}$/i.test(texts[1])){
+      proj.push({ n:parseInt(texts[0],10), mes:texts[1], fixos:n(texts[2]), fred:n(texts[3]), janyne:n(texts[4]), total:n(texts[5]) });
+    }
+  }
+  if(proj.length<12) throw new Error('projecao incompleta');
+  const cats = [];
+  let catHeaderIdx=-1;
+  rows.forEach((r,idx)=>{ if(rowTexts(r).includes('Categoria')) catHeaderIdx=idx; });
+  if(catHeaderIdx>=0){
+    for(let k=catHeaderIdx+1;k<rows.length;k++){
+      const texts = rowTexts(rows[k]).filter(t=>t!=='');
+      if(texts.length<2) continue;
+      if(texts[0].toUpperCase()==='TOTAL') break;
+      cats.push({categoria:texts[0], valor:n(texts[1])});
+    }
+  }
+  return { projecaoMensal:proj, categorias:cats };
+}
+
+async function tryFetchFixos(){
+  const table = await fetchSheetTable('GASTOS TOTAIS');
+  const rows = table.rows;
+  const list = [];
+  let started=false;
+  for(const r of rows){
+    const texts = rowTexts(r).filter(t=>t!=='');
+    if(texts.length<2) continue;
+    if(texts[0]==='Despesa'){ started=true; continue; }
+    if(!started) continue;
+    if(texts[0].toUpperCase()==='TOTAL') break;
+    if(texts[0].toLowerCase().includes('cartão')) continue; // cartões computados separadamente
+    list.push({despesa:texts[0], valor:n(texts[1])});
+  }
+  if(!list.length) throw new Error('gastos fixos nao encontrado');
+  return list;
+}
+
+async function tryFetchCartao(sheetName){
+  const table = await fetchSheetTable(sheetName);
+  const rows = table.rows;
+  let headerIdx=-1;
+  rows.forEach((r,idx)=>{ if(rowTexts(r).some(t=>t.toLowerCase().includes('estabelecimento'))) headerIdx=idx; });
+  if(headerIdx<0) throw new Error('cabecalho nao encontrado');
+  const out=[];
+  for(let k=headerIdx+1;k<rows.length;k++){
+    const texts = rowTexts(rows[k]);
+    const compact = texts.filter(t=>t!=='');
+    if(compact.length<6) continue;
+    // padrao: Estabelecimento, ParcPagas, ParcRest, TotalParc, ValorParcela, ValorAberto, Categoria
+    const estab = compact[0];
+    if(/^R\$/.test(estab) || estab.toLowerCase()==='total') continue;
+    const parcRest = compact[2];
+    const valorParcela = compact[4];
+    const valorAberto = compact[5];
+    const categoria = compact[6] || 'Outros';
+    if(!/^-?[\d.,]+$/.test(String(valorParcela))) continue;
+    out.push([estab, parseInt(parcRest,10)||0, n(valorParcela), n(valorAberto), categoria]);
+  }
+  if(!out.length) throw new Error('nenhuma transacao encontrada');
+  return out;
+}
+
+async function fetchLive(){
+  document.getElementById('liveText').textContent = 'atualizando…';
+  const results = await Promise.allSettled([
+    tryFetchDashboard(), tryFetchPainel(), tryFetchFixos(), tryFetchCartao('cartão fred'), tryFetchCartao('cartão janyne')
+  ]);
+  const [dash, painel, fixos, fred, janyne] = results;
+
+  if(dash.status==='fulfilled'){
+    DATA.kpisGerais = dash.value.kpisGerais;
+    const total = dash.value.cardsSummary.find(c=>c.nome.toLowerCase()==='total');
+    DATA.cardsSummary = dash.value.cardsSummary.filter(c=>c.nome.toLowerCase()!=='total');
+    if(total) DATA.cardsSummary.push(total); else {
+      const f = DATA.cardsSummary.reduce((s,c)=>({fatura:s.fatura+c.fatura,totalPagar:s.totalPagar+c.totalPagar,emAberto:s.emAberto+c.emAberto}),{fatura:0,totalPagar:0,emAberto:0});
+      DATA.cardsSummary.push({nome:'Total', ...f});
+    }
+    liveStatus.dashboard='live';
+  } else liveStatus.dashboard='cached';
+
+  if(painel.status==='fulfilled'){
+    DATA.projecaoMensal = painel.value.projecaoMensal;
+    liveStatus.painel='live';
+  } else liveStatus.painel='cached';
+
+  if(fixos.status==='fulfilled'){
+    DATA.gastosFixos = fixos.value;
+    const fredFat = DATA.cardsSummary.find(c=>c.nome==='Fred')?.fatura || 0;
+    const janFat = DATA.cardsSummary.find(c=>c.nome==='Janyne')?.fatura || 0;
+    DATA.gastosFixosTotal = fixos.value.reduce((s,x)=>s+x.valor,0) + fredFat + janFat;
+    liveStatus.fixos='live';
+  } else liveStatus.fixos='cached';
+
+  if(fred.status==='fulfilled' && janyne.status==='fulfilled'){
+    DATA.cartaoFred = fred.value;
+    DATA.cartaoJanyne = janyne.value;
+    TX = buildTransactions();
+    liveStatus.cartoes='live';
+  } else liveStatus.cartoes='cached';
+
+  if(!DATA.projecaoMensal.find(r=>r.mes===state.mes)) state.mes = DATA.projecaoMensal[0].mes;
+  document.getElementById('mesSelect').value = state.mes;
+  fullRender();
+}
+
+/* ================= INIT ================= */
+initControls();
+fullRender();
+fetchLive();
+setInterval(fetchLive, 60000);
 </script>
 </body>
 </html>
