@@ -350,7 +350,7 @@ footer a{color:var(--cover);}
   </section>
 
   <section class="dashboard-section" data-id="cartoes">
-    <div class="section-title"><span class="drag-handle" title="Arraste para reordenar">⠿</span><span class="n">07</span>Gastos variáveis <span class="live-tag" id="tagCartoes"></span><span class="chevron">⌄</span></div>
+    <div class="section-title"><span class="drag-handle" title="Arraste para reordenar">⠿</span><span class="n">07</span>Gastos Parcelados <span class="live-tag" id="tagCartoes"></span><span class="chevron">⌄</span></div>
     <div class="panel">
       <div class="table-controls">
         <span style="font-size:12px; color:var(--ink-soft);" id="tableCount"></span>
@@ -368,6 +368,30 @@ footer a{color:var(--cover);}
             </tr>
           </thead>
           <tbody id="txBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="dashboard-section" data-id="variaveis">
+    <div class="section-title"><span class="drag-handle" title="Arraste para reordenar">⠿</span><span class="n">08</span>Gastos Variáveis <span class="live-tag" id="tagVariaveis"></span><span class="chevron">⌄</span></div>
+    <div class="panel">
+      <div class="table-controls">
+        <span style="font-size:12px; color:var(--ink-soft);" id="tableCountVar"></span>
+        <button type="button" class="btn-primary" id="addVariavelBtn" style="width:auto; padding:8px 16px; background:transparent; color:var(--cover); border:1px dashed var(--line);">+ Adicionar</button>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th data-kv="data">Data</th>
+              <th data-kv="valor">Valor</th>
+              <th data-kv="descricao">Descrição</th>
+              <th data-kv="categoria">Categoria</th>
+              <th data-kv="responsavel">Quem</th>
+            </tr>
+          </thead>
+          <tbody id="txVarBody"></tbody>
         </table>
       </div>
     </div>
@@ -429,6 +453,7 @@ footer a{color:var(--cover);}
     <div class="type-toggle">
       <button type="button" class="active" data-tipo="cartao">Compra no cartão</button>
       <button type="button" data-tipo="fixo">Gasto fixo</button>
+      <button type="button" data-tipo="variavel">Gasto variável</button>
     </div>
     <form id="expenseForm">
       <div id="fieldsCartao">
@@ -474,6 +499,28 @@ footer a{color:var(--cover);}
         <div class="form-row">
           <label>Valor mensal</label>
           <input type="number" step="0.01" id="expValorFixo" placeholder="0,00">
+        </div>
+      </div>
+      <div id="fieldsVariavel" style="display:none;">
+        <div class="form-row">
+          <label>Data do gasto</label>
+          <input type="date" id="expDataVar">
+        </div>
+        <div class="form-row">
+          <label>Descrição</label>
+          <input type="text" id="expDescricaoVar" placeholder="ex: Mercado, gasolina avulsa...">
+        </div>
+        <div class="form-row">
+          <label>Categoria</label>
+          <select id="expCategoriaVar"></select>
+        </div>
+        <div class="form-row">
+          <label>Quem</label>
+          <select id="expResponsavelVar"><option>Casal</option><option>Fred</option><option>Janyne</option></select>
+        </div>
+        <div class="form-row">
+          <label>Valor</label>
+          <input type="number" step="0.01" id="expValorVar" placeholder="0,00">
         </div>
       </div>
       <button type="submit" class="btn-primary" id="expenseSubmit">Salvar gasto</button>
@@ -693,7 +740,8 @@ SNAPSHOT.gastosFixosAjustes = {}; // { 'set.-26': { 'Enel': 340.00 }, ... }
 let DATA = JSON.parse(JSON.stringify(SNAPSHOT));
 DATA.reservaMovimentos = [];
 DATA.gastosFixosAjustes = DATA.gastosFixosAjustes || {};
-let liveStatus = { dashboard:'cached', painel:'cached', fixos:'cached', cartoes:'cached', reserva:'cached', ajustes:'cached' };
+DATA.gastosVariaveis = [];
+let liveStatus = { dashboard:'cached', painel:'cached', fixos:'cached', cartoes:'cached', reserva:'cached', ajustes:'cached', variaveis:'cached' };
 
 function ajusteFor(cartao, mes){
   const a = DATA.faturaAjustes && DATA.faturaAjustes[cartao];
@@ -726,7 +774,7 @@ function saldoObjetivo(nomeObjetivo){
     .filter(m => m.objetivo === nomeObjetivo)
     .reduce((s,m) => s + (m.tipo === 'Retirada' ? -Number(m.valor) : Number(m.valor)), 0);
 }
-let state = { mes: DATA.projecaoMensal[0].mes, cardFiltro:'todos', search:'', sortKey:'data', sortDir:'desc' };
+let state = { mes: DATA.projecaoMensal[0].mes, cardFiltro:'todos', search:'', sortKey:'data', sortDir:'desc', sortKeyVar:'data', sortDirVar:'desc' };
 
 /* ================= TRANSACTIONS (flatten) ================= */
 function buildTransactions(){
@@ -927,8 +975,29 @@ function renderTable(){
     </tr>`).join('');
 }
 
+function renderGastosVariaveis(){
+  let rows = [...DATA.gastosVariaveis];
+  rows.sort((a,b)=>{
+    let va=a[state.sortKeyVar], vb=b[state.sortKeyVar];
+    if(state.sortKeyVar==='data'){ va = va||''; vb = vb||''; }
+    if(typeof va==='string'){ va=va.toLowerCase(); vb=vb.toLowerCase(); }
+    if(va<vb) return state.sortDirVar==='asc'?-1:1;
+    if(va>vb) return state.sortDirVar==='asc'?1:-1;
+    return 0;
+  });
+  document.getElementById('tableCountVar').textContent = `${rows.length} lançamento(s)`;
+  document.getElementById('txVarBody').innerHTML = rows.map(r=>`
+    <tr>
+      <td class="mono">${formatDataBR(r.data)}</td>
+      <td class="amount">${fmt.format(r.valor)}</td>
+      <td>${r.descricao}</td>
+      <td><span class="cat-chip" style="background:${catColor(r.categoria)}">${r.categoria}</span></td>
+      <td>${r.responsavel}</td>
+    </tr>`).join('');
+}
+
 function renderLiveTags(){
-  const map = {tagDashboard:'dashboard', tagPainel:'painel', tagFixos:'fixos', tagCartoes:'cartoes'};
+  const map = {tagDashboard:'dashboard', tagPainel:'painel', tagFixos:'fixos', tagCartoes:'cartoes', tagVariaveis:'variaveis'};
   Object.entries(map).forEach(([elId,key])=>{
     const el = document.getElementById(elId);
     const s = liveStatus[key];
@@ -942,7 +1011,7 @@ function renderLiveTags(){
 }
 
 function fullRender(){
-  renderKpiGeral(); renderKpiMes(); renderGoals(); renderReco(); renderFixos(); renderTable();
+  renderKpiGeral(); renderKpiMes(); renderGoals(); renderReco(); renderFixos(); renderTable(); renderGastosVariaveis();
   renderChartProjecao(); renderChartCategoria(); renderLiveTags();
 }
 
@@ -970,6 +1039,15 @@ function initControls(){
       if(state.sortKey===k) state.sortDir = state.sortDir==='asc'?'desc':'asc';
       else { state.sortKey=k; state.sortDir='desc'; }
       renderTable();
+    });
+  });
+
+  document.querySelectorAll('thead th[data-kv]').forEach(th=>{
+    th.addEventListener('click', ()=>{
+      const k = th.dataset.kv;
+      if(state.sortKeyVar===k) state.sortDirVar = state.sortDirVar==='asc'?'desc':'asc';
+      else { state.sortKeyVar=k; state.sortDirVar='desc'; }
+      renderGastosVariaveis();
     });
   });
 
@@ -1012,6 +1090,7 @@ function initControls(){
       const tipo = btn.dataset.tipo;
       document.getElementById('fieldsCartao').style.display = tipo==='cartao' ? 'block' : 'none';
       document.getElementById('fieldsFixo').style.display = tipo==='fixo' ? 'block' : 'none';
+      document.getElementById('fieldsVariavel').style.display = tipo==='variavel' ? 'block' : 'none';
       expenseTipoAtual = tipo;
     });
   });
@@ -1043,11 +1122,25 @@ function initControls(){
     document.querySelectorAll('.type-toggle button[data-tipo]').forEach(b=>b.classList.toggle('active', b.dataset.tipo==='fixo'));
     document.getElementById('fieldsCartao').style.display = 'none';
     document.getElementById('fieldsFixo').style.display = 'block';
+    document.getElementById('fieldsVariavel').style.display = 'none';
     expenseTipoAtual = 'fixo';
     openModal('modalExpense');
   });
   document.getElementById('fixoForm').addEventListener('submit', onFixoSubmit);
   document.getElementById('fixoExcluir').addEventListener('click', onFixoExcluir);
+
+  /* --- gastos variáveis --- */
+  document.getElementById('addVariavelBtn').addEventListener('click', ()=>{
+    document.getElementById('expenseConfigWarning').style.display = isConfigured() ? 'none' : 'block';
+    populateCategorySelect();
+    resetPagamentoToggle();
+    document.querySelectorAll('.type-toggle button[data-tipo]').forEach(b=>b.classList.toggle('active', b.dataset.tipo==='variavel'));
+    document.getElementById('fieldsCartao').style.display = 'none';
+    document.getElementById('fieldsFixo').style.display = 'none';
+    document.getElementById('fieldsVariavel').style.display = 'block';
+    expenseTipoAtual = 'variavel';
+    openModal('modalExpense');
+  });
 }
 
 let fixoAtual = null;
@@ -1163,6 +1256,7 @@ function resetPagamentoToggle(){
   document.getElementById('camposParcelado').style.display = 'none';
   document.getElementById('labelValorCompra').textContent = 'Valor da compra';
   document.getElementById('expData').value = new Date().toISOString().slice(0,10);
+  document.getElementById('expDataVar').value = new Date().toISOString().slice(0,10);
 }
 function openModal(id){ document.getElementById(id).classList.add('open'); }
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
@@ -1170,6 +1264,7 @@ function closeModal(id){ document.getElementById(id).classList.remove('open'); }
 function populateCategorySelect(){
   const cats = Object.keys(CATEGORY_COLORS);
   document.getElementById('expCategoriaCartao').innerHTML = cats.map(c=>`<option>${c}</option>`).join('');
+  document.getElementById('expCategoriaVar').innerHTML = cats.map(c=>`<option>${c}</option>`).join('');
 }
 
 async function onExpenseSubmit(e){
@@ -1190,11 +1285,21 @@ async function onExpenseSubmit(e){
       estabelecimento, categoria: document.getElementById('expCategoriaCartao').value,
       valorParcela, totalParcelas, parcelasPagas, data
     };
-  } else {
+  } else if(expenseTipoAtual==='fixo'){
     const despesa = document.getElementById('expDespesa').value.trim();
     const valor = parseFloat(document.getElementById('expValorFixo').value);
     if(!despesa || !valor){ showToast('Preencha despesa e valor.', true); return; }
     payload = { action:'addExpense', tipo:'fixo', despesa, valor };
+  } else {
+    const descricao = document.getElementById('expDescricaoVar').value.trim();
+    const valor = parseFloat(document.getElementById('expValorVar').value);
+    if(!descricao || !valor){ showToast('Preencha descrição e valor.', true); return; }
+    payload = {
+      action:'addGastoVariavel',
+      data: document.getElementById('expDataVar').value || new Date().toISOString().slice(0,10),
+      descricao, categoria: document.getElementById('expCategoriaVar').value,
+      responsavel: document.getElementById('expResponsavelVar').value, valor
+    };
   }
 
   // aplica localmente na hora (otimista), independente de estar configurado
@@ -1208,9 +1313,11 @@ async function onExpenseSubmit(e){
       valorParcela: payload.valorParcela, valorAberto, parcelasRestantes: restantes, categoria: payload.categoria
     });
     TX = buildTransactions();
-  } else {
+  } else if(expenseTipoAtual==='fixo'){
     DATA.gastosFixos.push({despesa:payload.despesa, valor:payload.valor});
     DATA.gastosFixosTotal += payload.valor;
+  } else {
+    DATA.gastosVariaveis.push({data:payload.data, descricao:payload.descricao, categoria:payload.categoria, responsavel:payload.responsavel, valor:payload.valor});
   }
 
   if(!isConfigured()){
@@ -1224,7 +1331,8 @@ async function onExpenseSubmit(e){
     await apiPost(payload);
     showToast('Gasto salvo na planilha ✓');
     closeModal('modalExpense'); e.target.reset(); resetPagamentoToggle();
-    scheduleLiveResync();
+    if(expenseTipoAtual==='variavel') fetchGastosVariaveis();
+    else scheduleLiveResync();
   }catch(err){
     showToast('Salvo aqui, mas falhou ao gravar na planilha: ' + err.message, true);
   }finally{
@@ -1287,13 +1395,32 @@ async function fetchReservaLedger(){
       if(json.gastosFixosAjustes){
         DATA.gastosFixosAjustes = json.gastosFixosAjustes;
       }
+      if(json.gastosVariaveis){
+        DATA.gastosVariaveis = json.gastosVariaveis;
+        liveStatus.variaveis = 'live';
+      }
       liveStatus.reserva = 'live';
       renderGoals();
       renderKpiMes();
       renderChartProjecao();
       renderFixos();
+      renderGastosVariaveis();
+      renderLiveTags();
     }
   }catch(err){ liveStatus.reserva = 'cached'; }
+}
+
+async function fetchGastosVariaveis(){
+  if(!isConfigured()) return;
+  try{
+    const json = await apiGet();
+    if(json && json.ok && json.gastosVariaveis){
+      DATA.gastosVariaveis = json.gastosVariaveis;
+      liveStatus.variaveis = 'live';
+      renderGastosVariaveis();
+      renderLiveTags();
+    }
+  }catch(err){ liveStatus.variaveis = 'cached'; }
 }
 
 /* ================= LIVE FETCH (best-effort, com fallback ao snapshot) ================= */
