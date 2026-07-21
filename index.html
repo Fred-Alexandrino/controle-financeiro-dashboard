@@ -1076,6 +1076,7 @@ async function onFixoSubmit(e){
       if(valorMesStr === '') await apiPost({ action:'setGastoFixoMes', despesa:novoNome, mes:state.mes, valor:null });
       else await apiPost({ action:'setGastoFixoMes', despesa:novoNome, mes:state.mes, valor:parseFloat(valorMesStr) });
       showToast('Salvo na planilha ✓');
+      scheduleLiveResync();
     }catch(err){ showToast('Aplicado aqui, mas falhou ao salvar: ' + err.message, true); }
   } else {
     showToast('Aplicado nesta tela. Configure ⚙ para salvar na planilha.');
@@ -1090,7 +1091,7 @@ async function onFixoExcluir(){
   closeModal('modalFixo');
   fullRender();
   if(isConfigured()){
-    try{ await apiPost({ action:'deleteGastoFixo', despesa }); showToast('Excluído da planilha ✓'); }
+    try{ await apiPost({ action:'deleteGastoFixo', despesa }); showToast('Excluído da planilha ✓'); scheduleLiveResync(); }
     catch(err){ showToast('Excluído aqui, mas falhou ao salvar: ' + err.message, true); }
   } else {
     showToast('Excluído nesta tela.');
@@ -1202,6 +1203,7 @@ async function onExpenseSubmit(e){
     await apiPost(payload);
     showToast('Gasto salvo na planilha ✓');
     closeModal('modalExpense'); e.target.reset(); resetPagamentoToggle();
+    scheduleLiveResync();
   }catch(err){
     showToast('Salvo aqui, mas falhou ao gravar na planilha: ' + err.message, true);
   }finally{
@@ -1421,6 +1423,12 @@ async function tryFetchCartao(sheetName){
   if(!out.length) throw new Error('nenhuma transacao encontrada');
   if(out.reduce((s,r)=>s+r[3],0) < 0) throw new Error('valores invalidos — mantendo dados anteriores');
   return out;
+}
+
+function scheduleLiveResync(){
+  // da tempo da planilha recalcular as formulas (Dashboard/Painel) antes de buscar de novo
+  showToast('Sincronizando com a planilha…');
+  setTimeout(()=>{ fetchLive(); fetchReservaLedger(); }, 2200);
 }
 
 async function fetchLive(){
