@@ -360,7 +360,7 @@ footer a{color:var(--cover);}
           <thead>
             <tr>
               <th data-k="data">Data</th>
-              <th data-k="valorAberto">Valor</th>
+              <th data-k="valorParcela">Valor</th>
               <th data-k="estabelecimento">Estabelecimento</th>
               <th data-k="categoria">Categoria</th>
               <th data-k="cartao">Cartão</th>
@@ -731,8 +731,8 @@ let state = { mes: DATA.projecaoMensal[0].mes, cardFiltro:'todos', search:'', so
 /* ================= TRANSACTIONS (flatten) ================= */
 function buildTransactions(){
   const rows = [];
-  DATA.cartaoFred.forEach(r=>rows.push({cartao:'Fred', estabelecimento:r[0], parcelasRestantes:r[1], valorParcela:r[2], valorAberto:r[3], categoria:r[4], data:r[5]||null}));
-  DATA.cartaoJanyne.forEach(r=>rows.push({cartao:'Janyne', estabelecimento:r[0], parcelasRestantes:r[1], valorParcela:r[2], valorAberto:r[3], categoria:r[4], data:r[5]||null}));
+  DATA.cartaoFred.forEach(r=>rows.push({cartao:'Fred', estabelecimento:r[0], parcelasRestantes:r[1], valorParcela:r[2], valorAberto:r[3], categoria:r[4], data:r[5]||'2026-07-01'}));
+  DATA.cartaoJanyne.forEach(r=>rows.push({cartao:'Janyne', estabelecimento:r[0], parcelasRestantes:r[1], valorParcela:r[2], valorAberto:r[3], categoria:r[4], data:r[5]||'2026-07-01'}));
   return rows;
 }
 let TX = buildTransactions();
@@ -903,7 +903,7 @@ function renderTable(){
   document.getElementById('txBody').innerHTML = rows.map(t=>`
     <tr>
       <td class="mono">${formatDataBR(t.data)}</td>
-      <td class="amount">${fmt.format(t.valorAberto)}</td>
+      <td class="amount">${fmt.format(t.valorParcela)}</td>
       <td>${t.estabelecimento}</td>
       <td><span class="cat-chip" style="background:${catColor(t.categoria)}">${t.categoria}</span></td>
       <td>${t.cartao}</td>
