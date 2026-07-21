@@ -120,9 +120,16 @@ body{
 .section-placeholder{
   border:2px dashed var(--brass); border-radius:12px; background:rgba(184,147,91,.08); margin:36px 0 14px;
 }
-.live-tag{font-family:'IBM Plex Mono',monospace; font-size:10px; padding:2px 7px; border-radius:5px; margin-left:auto; font-weight:600;}
+.live-tag{font-family:'IBM Plex Mono',monospace; font-size:10px; padding:2px 7px; border-radius:5px; font-weight:600;}
 .live-tag.live{background:var(--green-bg); color:#1F6B3C;}
 .live-tag.cached{background:#F1E7CE; color:#8A6A24;}
+.chevron{
+  margin-left:auto; color:var(--ink-soft); font-size:16px; transition:transform .18s ease; cursor:pointer;
+  padding:2px 4px;
+}
+.dashboard-section.collapsed .chevron{transform:rotate(-90deg);}
+.dashboard-section.collapsed > *:not(.section-title){display:none;}
+.section-title{cursor:pointer;}
 
 /* KPI CARDS */
 .kpi-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px;}
@@ -305,22 +312,22 @@ footer a{color:var(--cover);}
   </div>
 
   <section class="dashboard-section" data-id="panorama">
-    <div class="section-title"><span class="drag-handle" title="Arraste para reordenar">⠿</span><span class="n">01</span>Panorama geral <span class="live-tag" id="tagDashboard"></span></div>
+    <div class="section-title"><span class="drag-handle" title="Arraste para reordenar">⠿</span><span class="n">01</span>Panorama geral <span class="live-tag" id="tagDashboard"></span><span class="chevron">⌄</span></div>
     <div class="kpi-grid" id="kpiGeral"></div>
   </section>
 
   <section class="dashboard-section" data-id="mes">
-    <div class="section-title"><span class="drag-handle" title="Arraste para reordenar">⠿</span><span class="n">02</span>Mês selecionado: <span id="mesLabelTitle" style="color:var(--brass); margin-left:4px;"></span></div>
+    <div class="section-title"><span class="drag-handle" title="Arraste para reordenar">⠿</span><span class="n">02</span>Mês selecionado: <span id="mesLabelTitle" style="color:var(--brass); margin-left:4px;"></span><span class="chevron">⌄</span></div>
     <div class="kpi-grid" id="kpiMes"></div>
   </section>
 
   <section class="dashboard-section" data-id="projecao">
-    <div class="section-title"><span class="drag-handle" title="Arraste para reordenar">⠿</span><span class="n">03</span>Projeção mensal (13 meses) <span class="live-tag" id="tagPainel"></span></div>
+    <div class="section-title"><span class="drag-handle" title="Arraste para reordenar">⠿</span><span class="n">03</span>Projeção mensal (13 meses) <span class="live-tag" id="tagPainel"></span><span class="chevron">⌄</span></div>
     <div class="panel chart-box"><canvas id="chartProjecao" height="90"></canvas></div>
   </section>
 
   <section class="dashboard-section" data-id="reserva">
-    <div class="section-title"><span class="drag-handle" title="Arraste para reordenar">⠿</span><span class="n">04</span>Reserva &amp; metas</div>
+    <div class="section-title"><span class="drag-handle" title="Arraste para reordenar">⠿</span><span class="n">04</span>Reserva &amp; metas<span class="chevron">⌄</span></div>
     <div class="panel">
       <div id="goalsBox"></div>
       <ul class="reco-list" id="recoList"></ul>
@@ -328,12 +335,12 @@ footer a{color:var(--cover);}
   </section>
 
   <section class="dashboard-section" data-id="categoria">
-    <div class="section-title"><span class="drag-handle" title="Arraste para reordenar">⠿</span><span class="n">05</span>Gasto em aberto por categoria</div>
+    <div class="section-title"><span class="drag-handle" title="Arraste para reordenar">⠿</span><span class="n">05</span>Gasto em aberto por categoria<span class="chevron">⌄</span></div>
     <div class="panel chart-box"><canvas id="chartCategoria" height="110"></canvas></div>
   </section>
 
   <section class="dashboard-section" data-id="fixos">
-    <div class="section-title"><span class="drag-handle" title="Arraste para reordenar">⠿</span><span class="n">06</span>Gastos fixos — <span id="fixosMesLabel" style="color:var(--brass); margin-left:4px;"></span> <span class="live-tag" id="tagFixos"></span></div>
+    <div class="section-title"><span class="drag-handle" title="Arraste para reordenar">⠿</span><span class="n">06</span>Gastos fixos — <span id="fixosMesLabel" style="color:var(--brass); margin-left:4px;"></span> <span class="live-tag" id="tagFixos"></span><span class="chevron">⌄</span></div>
     <div class="panel">
       <div class="helper-text" style="margin-bottom:12px;">Valores do mês selecionado no filtro do topo. Itens sem ajuste específico usam o valor padrão.</div>
       <div id="fixosList"></div>
@@ -343,7 +350,7 @@ footer a{color:var(--cover);}
   </section>
 
   <section class="dashboard-section" data-id="cartoes">
-    <div class="section-title"><span class="drag-handle" title="Arraste para reordenar">⠿</span><span class="n">07</span>Lançamentos em aberto (cartões) <span class="live-tag" id="tagCartoes"></span></div>
+    <div class="section-title"><span class="drag-handle" title="Arraste para reordenar">⠿</span><span class="n">07</span>Lançamentos em aberto (cartões) <span class="live-tag" id="tagCartoes"></span><span class="chevron">⌄</span></div>
     <div class="panel">
       <div class="table-controls">
         <span style="font-size:12px; color:var(--ink-soft);" id="tableCount"></span>
@@ -1398,6 +1405,31 @@ async function fetchLive(){
   fullRender();
 }
 
+/* ================= RECOLHER / EXPANDIR SEÇÕES ================= */
+const COLLAPSED_KEY = 'caderneta_collapsed_v1';
+
+function getCollapsedIds(){
+  try{ return new Set(JSON.parse(localStorage.getItem(COLLAPSED_KEY) || '[]')); }catch(e){ return new Set(); }
+}
+function saveCollapsedIds(set){
+  localStorage.setItem(COLLAPSED_KEY, JSON.stringify(Array.from(set)));
+}
+
+function initCollapsible(){
+  const collapsed = getCollapsedIds();
+  document.querySelectorAll('.dashboard-section').forEach(sec=>{
+    if(collapsed.has(sec.dataset.id)) sec.classList.add('collapsed');
+    const title = sec.querySelector('.section-title');
+    title.addEventListener('click', (e)=>{
+      if(e.target.closest('.drag-handle')) return;
+      sec.classList.toggle('collapsed');
+      const set = getCollapsedIds();
+      if(sec.classList.contains('collapsed')) set.add(sec.dataset.id); else set.delete(sec.dataset.id);
+      saveCollapsedIds(set);
+    });
+  });
+}
+
 /* ================= DRAG & DROP DE SEÇÕES ================= */
 const SECTION_ORDER_KEY = 'caderneta_section_order_v1';
 let dragCtx = null;
@@ -1495,6 +1527,7 @@ function onSectionDragEnd(){
 /* ================= INIT ================= */
 initControls();
 initDragReorder();
+initCollapsible();
 fullRender();
 fetchLive();
 fetchReservaLedger();
