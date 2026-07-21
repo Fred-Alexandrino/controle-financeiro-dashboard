@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Caderneta — Controle Financeiro</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#1E3A2F">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Caderneta">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
@@ -167,6 +174,81 @@ tbody tr:hover{background:var(--paper-2);}
 .chart-box{position:relative;}
 footer{margin-top:50px; padding-top:20px; border-top:1px solid var(--line); font-size:12px; color:var(--ink-soft); text-align:center;}
 footer a{color:var(--cover);}
+
+/* FAB */
+.fab{
+  position:fixed; right:20px; bottom:22px; z-index:50;
+  width:60px; height:60px; border-radius:50%; background:var(--brass); color:var(--cover);
+  border:none; font-size:28px; font-weight:700; box-shadow:0 6px 20px rgba(30,58,47,.35); cursor:pointer;
+  display:flex; align-items:center; justify-content:center; line-height:1;
+}
+.fab:hover{background:var(--brass-light);}
+.icon-btn{
+  background:transparent; border:1px solid rgba(255,255,255,.4); color:var(--paper);
+  width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:14px; display:flex; align-items:center; justify-content:center;
+}
+.icon-btn:hover{background:rgba(255,255,255,.1);}
+
+/* MODAL */
+.modal-overlay{
+  position:fixed; inset:0; background:rgba(20,25,20,.55); z-index:100; display:none;
+  align-items:flex-end; justify-content:center;
+}
+.modal-overlay.open{display:flex;}
+.modal-sheet{
+  background:var(--card); width:100%; max-width:480px; border-radius:16px 16px 0 0;
+  padding:22px 22px 28px; max-height:88vh; overflow:auto; box-shadow:0 -8px 30px rgba(0,0,0,.25);
+}
+@media (min-width:640px){
+  .modal-overlay{align-items:center;}
+  .modal-sheet{border-radius:16px; margin-bottom:0;}
+}
+.modal-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;}
+.modal-head h3{font-family:'Fraunces',serif; font-size:19px; color:var(--cover); margin:0;}
+.modal-close{background:none; border:none; font-size:20px; cursor:pointer; color:var(--ink-soft);}
+.form-row{margin-bottom:14px;}
+.form-row label{display:block; font-size:11px; text-transform:uppercase; letter-spacing:.5px; font-weight:600; color:var(--ink-soft); margin-bottom:5px;}
+.form-row input, .form-row select, .form-row textarea{
+  width:100%; padding:10px 12px; border-radius:8px; border:1px solid var(--line); background:var(--paper);
+  color:var(--ink); font-family:'Inter',sans-serif; font-size:14px;
+}
+.form-row input:focus, .form-row select:focus{outline:2px solid var(--brass); outline-offset:1px;}
+.form-grid2{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+.type-toggle{display:flex; gap:8px; margin-bottom:16px;}
+.type-toggle button{
+  flex:1; padding:10px; border-radius:8px; border:1px solid var(--line); background:var(--paper);
+  font-weight:600; font-size:13px; cursor:pointer; color:var(--ink-soft);
+}
+.type-toggle button.active{background:var(--cover); color:var(--paper); border-color:var(--cover);}
+.btn-primary{
+  width:100%; padding:13px; border-radius:9px; border:none; background:var(--cover); color:var(--paper);
+  font-weight:700; font-size:14px; cursor:pointer; margin-top:6px;
+}
+.btn-primary:hover{background:var(--cover-2);}
+.btn-primary:disabled{opacity:.5; cursor:not-allowed;}
+.helper-text{font-size:12px; color:var(--ink-soft); margin-top:10px; line-height:1.5;}
+.helper-text a{color:var(--cover);}
+.config-warning{
+  background:var(--rust-bg); color:var(--rust); border-radius:8px; padding:10px 12px; font-size:12px; margin-bottom:14px;
+}
+
+/* TOAST */
+#toastBox{position:fixed; top:16px; left:50%; transform:translateX(-50%); z-index:200; display:flex; flex-direction:column; gap:8px;}
+.toast{
+  background:var(--cover); color:var(--paper); padding:11px 18px; border-radius:9px; font-size:13px;
+  box-shadow:var(--shadow); animation:fadein .2s ease;
+}
+.toast.error{background:var(--rust);}
+@keyframes fadein{ from{opacity:0; transform:translateY(-8px);} to{opacity:1; transform:translateY(0);} }
+
+/* GOAL ACTIONS */
+.goal-actions{display:flex; gap:8px; margin-top:10px;}
+.goal-actions button{
+  flex:1; padding:6px 8px; border-radius:6px; border:1px solid var(--line); background:var(--card);
+  font-size:12px; font-weight:600; cursor:pointer; color:var(--cover);
+}
+.goal-actions button.retirada{color:var(--rust);}
+.goal-saldo{font-family:'IBM Plex Mono',monospace; font-size:13px; font-weight:700; color:var(--cover); margin-top:6px;}
 </style>
 </head>
 <body>
@@ -180,6 +262,7 @@ footer a{color:var(--cover);}
     <div class="stamp">
       <span class="stamp-badge"><span class="dot" id="liveDot"></span> <span id="liveText">verificando…</span></span>
       <button id="refreshBtn">↻ atualizar agora</button>
+      <button class="icon-btn" id="settingsBtn" title="Configurações">⚙</button>
     </div>
   </div>
 </div>
@@ -263,6 +346,91 @@ footer a{color:var(--cover);}
   </footer>
 </div>
 
+<button class="fab" id="fabAddExpense" title="Adicionar gasto">+</button>
+<div id="toastBox"></div>
+
+<!-- MODAL: Configurações -->
+<div class="modal-overlay" id="modalSettings">
+  <div class="modal-sheet">
+    <div class="modal-head"><h3>Configurações</h3><button class="modal-close" data-close>✕</button></div>
+    <div class="helper-text" style="margin-bottom:16px;">
+      Para gravar gastos e movimentações da reserva direto na planilha, publique o Apps Script (arquivo <code>AppsScript_Code.gs</code>) na sua planilha e cole aqui a URL gerada + a senha que você definiu no script. Isso fica salvo só neste navegador.
+    </div>
+    <div class="form-row">
+      <label>URL do Apps Script (Web App)</label>
+      <input type="text" id="cfgUrl" placeholder="https://script.google.com/macros/s/.../exec">
+    </div>
+    <div class="form-row">
+      <label>Senha (SECRET definida no script)</label>
+      <input type="text" id="cfgSecret" placeholder="sua senha">
+    </div>
+    <button class="btn-primary" id="cfgSave">Salvar configuração</button>
+    <div class="helper-text" id="cfgStatus"></div>
+  </div>
+</div>
+
+<!-- MODAL: Adicionar gasto -->
+<div class="modal-overlay" id="modalExpense">
+  <div class="modal-sheet">
+    <div class="modal-head"><h3>Adicionar gasto</h3><button class="modal-close" data-close>✕</button></div>
+    <div id="expenseConfigWarning" class="config-warning" style="display:none;">
+      O link de gravação ainda não foi configurado. Abra ⚙ Configurações antes de salvar — sem isso o gasto fica só nesta tela, não vai pra planilha.
+    </div>
+    <div class="type-toggle">
+      <button type="button" class="active" data-tipo="cartao">Compra no cartão</button>
+      <button type="button" data-tipo="fixo">Gasto fixo</button>
+    </div>
+    <form id="expenseForm">
+      <div id="fieldsCartao">
+        <div class="form-row">
+          <label>Cartão</label>
+          <select id="expCartao"><option>Fred</option><option>Janyne</option></select>
+        </div>
+        <div class="form-row">
+          <label>Estabelecimento</label>
+          <input type="text" id="expEstabelecimento" placeholder="ex: Amazon, Farmácia...">
+        </div>
+        <div class="form-row">
+          <label>Categoria</label>
+          <select id="expCategoriaCartao"></select>
+        </div>
+        <div class="form-grid2">
+          <div class="form-row"><label>Valor da parcela</label><input type="number" step="0.01" id="expValorParcela" placeholder="0,00"></div>
+          <div class="form-row"><label>Total de parcelas</label><input type="number" id="expTotalParcelas" value="1" min="1"></div>
+        </div>
+        <div class="form-row"><label>Parcelas já pagas</label><input type="number" id="expParcelasPagas" value="0" min="0"></div>
+      </div>
+      <div id="fieldsFixo" style="display:none;">
+        <div class="form-row">
+          <label>Despesa</label>
+          <input type="text" id="expDespesa" placeholder="ex: Internet, Academia...">
+        </div>
+        <div class="form-row">
+          <label>Valor mensal</label>
+          <input type="number" step="0.01" id="expValorFixo" placeholder="0,00">
+        </div>
+      </div>
+      <button type="submit" class="btn-primary" id="expenseSubmit">Salvar gasto</button>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL: Aporte/Retirada Reserva -->
+<div class="modal-overlay" id="modalReserva">
+  <div class="modal-sheet">
+    <div class="modal-head"><h3 id="reservaModalTitle">Aporte</h3><button class="modal-close" data-close>✕</button></div>
+    <div id="reservaConfigWarning" class="config-warning" style="display:none;">
+      O link de gravação ainda não foi configurado. Abra ⚙ Configurações antes de salvar.
+    </div>
+    <form id="reservaForm">
+      <div class="form-row"><label>Objetivo</label><input type="text" id="resvObjetivo" disabled></div>
+      <div class="form-row"><label>Valor</label><input type="number" step="0.01" id="resvValor" placeholder="0,00"></div>
+      <div class="form-row"><label>Observação (opcional)</label><input type="text" id="resvObs" placeholder="ex: bônus de dezembro"></div>
+      <button type="submit" class="btn-primary" id="reservaSubmit">Confirmar</button>
+    </form>
+  </div>
+</div>
+
 <script>
 /* ================= FORMAT HELPERS ================= */
 const fmt = new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
@@ -278,6 +446,40 @@ const CATEGORY_COLORS = {
   'Vestuário':'#6E8272','Outros':'#9A9184'
 };
 function catColor(c){ return CATEGORY_COLORS[c] || '#9A9184'; }
+
+/* ================= CONFIG (Apps Script) ================= */
+const CFG_KEY = 'caderneta_cfg_v1';
+function getConfig(){ try{ return JSON.parse(localStorage.getItem(CFG_KEY)||'{}'); }catch(e){ return {}; } }
+function setConfig(cfg){ localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); }
+function isConfigured(){ const c = getConfig(); return !!(c.url && c.secret); }
+
+function showToast(msg, isError=false){
+  const box = document.getElementById('toastBox');
+  const t = document.createElement('div');
+  t.className = 'toast' + (isError ? ' error' : '');
+  t.textContent = msg;
+  box.appendChild(t);
+  setTimeout(()=>t.remove(), 3800);
+}
+
+async function apiPost(payload){
+  const cfg = getConfig();
+  if(!cfg.url) throw new Error('Apps Script não configurado.');
+  const res = await fetch(cfg.url, {
+    method:'POST',
+    headers:{'Content-Type':'text/plain;charset=utf-8'}, // evita preflight CORS no Apps Script
+    body: JSON.stringify({ ...payload, secret: cfg.secret })
+  });
+  const json = await res.json();
+  if(!json.ok) throw new Error(json.error || 'erro desconhecido');
+  return json;
+}
+async function apiGet(){
+  const cfg = getConfig();
+  if(!cfg.url) return null;
+  const res = await fetch(cfg.url + (cfg.url.includes('?') ? '&' : '?') + 'action=getAll');
+  return await res.json();
+}
 
 /* ================= SNAPSHOT DATA (fallback confiável) ================= */
 const SNAPSHOT = {
@@ -399,7 +601,14 @@ SNAPSHOT.cardsSummary.push({nome:'Total', fatura:SNAPSHOT.cardsSummary[0].fatura
 SNAPSHOT.gastosFixosTotal = SNAPSHOT.gastosFixos.reduce((s,x)=>s+x.valor,0) + SNAPSHOT.cardsSummary[0].fatura + SNAPSHOT.cardsSummary[1].fatura;
 
 let DATA = JSON.parse(JSON.stringify(SNAPSHOT));
-let liveStatus = { dashboard:'cached', painel:'cached', fixos:'cached', cartoes:'cached' };
+DATA.reservaMovimentos = [];
+let liveStatus = { dashboard:'cached', painel:'cached', fixos:'cached', cartoes:'cached', reserva:'cached' };
+
+function saldoObjetivo(nomeObjetivo){
+  return DATA.reservaMovimentos
+    .filter(m => m.objetivo === nomeObjetivo)
+    .reduce((s,m) => s + (m.tipo === 'Retirada' ? -Number(m.valor) : Number(m.valor)), 0);
+}
 let state = { mes: DATA.projecaoMensal[0].mes, cardFiltro:'todos', search:'', sortKey:'valorAberto', sortDir:'desc' };
 
 /* ================= TRANSACTIONS (flatten) ================= */
@@ -500,22 +709,33 @@ function renderKpiMes(){
 
 function renderGoals(){
   const box = document.getElementById('goalsBox');
+  const configured = isConfigured();
   box.innerHTML = `<div style="font-size:12px; color:var(--ink-soft); font-weight:600; text-transform:uppercase; margin-bottom:14px;">Metas de reserva · guardando ${fmt.format(DATA.planoPoupanca.metaGuardarMes)}/mês</div>` +
+    (!configured ? `<div class="config-warning">Configure o Apps Script (⚙) para registrar aportes/retiradas e ver o saldo real de cada meta.</div>` : '') +
     DATA.metas.map(m=>{
-      const pct = m.prazoMeses ? Math.max(6, 100 - m.prazoMeses*2) : 100; // ilustrativo de escala de prazo, não saldo atual
+      const saldo = saldoObjetivo(m.objetivo);
+      const pct = m.valorAlvo ? Math.min(100, Math.max(0, (saldo / m.valorAlvo) * 100)) : null;
       return `<div class="goal">
         <div class="goal-head">
           <span class="name">${m.objetivo}</span>
           <span class="target">${m.valorAlvo ? fmt.format(m.valorAlvo) : 'contínuo'}</span>
         </div>
-        <div class="goal-bar-track"><div class="goal-bar-fill" style="width:${pct}%"></div></div>
+        <div class="goal-bar-track"><div class="goal-bar-fill" style="width:${pct===null?4:pct}%"></div></div>
         <div class="goal-meta">
           <span>Guardando ${fmt.format(m.guardarMes)}/mês</span>
           <span>${m.prazoMeses ? m.prazoMeses+' meses p/ atingir' : 'sem prazo fixo'}</span>
         </div>
+        <div class="goal-saldo">Saldo atual: ${fmt.format(saldo)} ${pct!==null ? `(${pct.toFixed(0)}%)` : ''}</div>
+        <div class="goal-actions">
+          <button type="button" data-objetivo="${m.objetivo}" data-tipo="Aporte">+ Aporte</button>
+          <button type="button" class="retirada" data-objetivo="${m.objetivo}" data-tipo="Retirada">− Retirada</button>
+        </div>
       </div>`;
-    }).join('') +
-    `<div style="font-size:11px; color:var(--ink-soft); margin-top:6px;">* barra ilustra escala de prazo entre metas, não saldo já guardado (a planilha não registra saldo atual).</div>`;
+    }).join('');
+
+  box.querySelectorAll('.goal-actions button').forEach(btn=>{
+    btn.addEventListener('click', ()=> openReservaModal(btn.dataset.objetivo, btn.dataset.tipo));
+  });
 }
 
 function renderReco(){
@@ -599,6 +819,164 @@ function initControls(){
   });
 
   document.getElementById('refreshBtn').addEventListener('click', fetchLive);
+
+  /* --- modais: abrir/fechar genérico --- */
+  document.querySelectorAll('.modal-overlay').forEach(ov=>{
+    ov.addEventListener('click', (e)=>{ if(e.target===ov) closeModal(ov.id); });
+    ov.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click', ()=>closeModal(ov.id)));
+  });
+
+  /* --- configurações --- */
+  document.getElementById('settingsBtn').addEventListener('click', ()=>{
+    const cfg = getConfig();
+    document.getElementById('cfgUrl').value = cfg.url || '';
+    document.getElementById('cfgSecret').value = cfg.secret || '';
+    document.getElementById('cfgStatus').textContent = isConfigured() ? 'Configurado ✓' : 'Ainda não configurado — os botões de salvar ficarão desativados até isso.';
+    openModal('modalSettings');
+  });
+  document.getElementById('cfgSave').addEventListener('click', ()=>{
+    const url = document.getElementById('cfgUrl').value.trim();
+    const secret = document.getElementById('cfgSecret').value.trim();
+    setConfig({ url, secret });
+    showToast('Configuração salva neste navegador.');
+    closeModal('modalSettings');
+    fetchReservaLedger();
+  });
+
+  /* --- adicionar gasto --- */
+  document.getElementById('fabAddExpense').addEventListener('click', ()=>{
+    document.getElementById('expenseConfigWarning').style.display = isConfigured() ? 'none' : 'block';
+    populateCategorySelect();
+    openModal('modalExpense');
+  });
+  document.querySelectorAll('.type-toggle button[data-tipo]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.type-toggle button[data-tipo]').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      const tipo = btn.dataset.tipo;
+      document.getElementById('fieldsCartao').style.display = tipo==='cartao' ? 'block' : 'none';
+      document.getElementById('fieldsFixo').style.display = tipo==='fixo' ? 'block' : 'none';
+      expenseTipoAtual = tipo;
+    });
+  });
+  document.getElementById('expenseForm').addEventListener('submit', onExpenseSubmit);
+
+  /* --- reserva: aporte/retirada --- */
+  document.getElementById('reservaForm').addEventListener('submit', onReservaSubmit);
+}
+
+let expenseTipoAtual = 'cartao';
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+
+function populateCategorySelect(){
+  const cats = Object.keys(CATEGORY_COLORS);
+  document.getElementById('expCategoriaCartao').innerHTML = cats.map(c=>`<option>${c}</option>`).join('');
+}
+
+async function onExpenseSubmit(e){
+  e.preventDefault();
+  const btn = document.getElementById('expenseSubmit');
+  let payload;
+  if(expenseTipoAtual==='cartao'){
+    const estabelecimento = document.getElementById('expEstabelecimento').value.trim();
+    const valorParcela = parseFloat(document.getElementById('expValorParcela').value);
+    if(!estabelecimento || !valorParcela){ showToast('Preencha estabelecimento e valor da parcela.', true); return; }
+    payload = {
+      action:'addExpense', tipo:'cartao',
+      cartao: document.getElementById('expCartao').value,
+      estabelecimento, categoria: document.getElementById('expCategoriaCartao').value,
+      valorParcela, totalParcelas: parseInt(document.getElementById('expTotalParcelas').value,10)||1,
+      parcelasPagas: parseInt(document.getElementById('expParcelasPagas').value,10)||0
+    };
+  } else {
+    const despesa = document.getElementById('expDespesa').value.trim();
+    const valor = parseFloat(document.getElementById('expValorFixo').value);
+    if(!despesa || !valor){ showToast('Preencha despesa e valor.', true); return; }
+    payload = { action:'addExpense', tipo:'fixo', despesa, valor };
+  }
+
+  // aplica localmente na hora (otimista), independente de estar configurado
+  if(expenseTipoAtual==='cartao'){
+    const restantes = Math.max(0, payload.totalParcelas - payload.parcelasPagas);
+    const alvo = payload.cartao==='Fred' ? DATA.cartaoFred : DATA.cartaoJanyne;
+    alvo.push([payload.estabelecimento, restantes, payload.valorParcela, restantes*payload.valorParcela, payload.categoria]);
+    TX = buildTransactions();
+  } else {
+    DATA.gastosFixos.push({despesa:payload.despesa, valor:payload.valor});
+    DATA.gastosFixosTotal += payload.valor;
+  }
+
+  if(!isConfigured()){
+    showToast('Gasto adicionado nesta tela. Configure ⚙ para salvar na planilha.');
+    closeModal('modalExpense'); e.target.reset(); fullRender();
+    return;
+  }
+
+  btn.disabled = true; btn.textContent = 'Salvando…';
+  try{
+    await apiPost(payload);
+    showToast('Gasto salvo na planilha ✓');
+    closeModal('modalExpense'); e.target.reset();
+  }catch(err){
+    showToast('Salvo aqui, mas falhou ao gravar na planilha: ' + err.message, true);
+  }finally{
+    btn.disabled=false; btn.textContent='Salvar gasto';
+    fullRender();
+  }
+}
+
+function openReservaModal(objetivo, tipo){
+  document.getElementById('reservaConfigWarning').style.display = isConfigured() ? 'none' : 'block';
+  document.getElementById('reservaModalTitle').textContent = tipo + ' — ' + objetivo;
+  document.getElementById('resvObjetivo').value = objetivo;
+  document.getElementById('reservaForm').dataset.objetivo = objetivo;
+  document.getElementById('reservaForm').dataset.tipo = tipo;
+  document.getElementById('resvValor').value = '';
+  document.getElementById('resvObs').value = '';
+  openModal('modalReserva');
+}
+
+async function onReservaSubmit(e){
+  e.preventDefault();
+  const form = e.target;
+  const objetivo = form.dataset.objetivo, tipo = form.dataset.tipo;
+  const valor = parseFloat(document.getElementById('resvValor').value);
+  if(!valor || valor<=0){ showToast('Informe um valor válido.', true); return; }
+  const obs = document.getElementById('resvObs').value.trim();
+  const btn = document.getElementById('reservaSubmit');
+
+  DATA.reservaMovimentos.push({ data:new Date().toISOString().slice(0,10), objetivo, tipo, valor, observacao:obs });
+
+  if(!isConfigured()){
+    showToast(`${tipo} registrado(a) nesta tela. Configure ⚙ para salvar na planilha.`);
+    closeModal('modalReserva'); renderGoals();
+    return;
+  }
+
+  btn.disabled=true; btn.textContent='Salvando…';
+  try{
+    await apiPost({ action:'addReservaMovimento', objetivo, tipo, valor, observacao:obs });
+    showToast(`${tipo} salvo(a) na planilha ✓`);
+    closeModal('modalReserva');
+  }catch(err){
+    showToast('Salvo aqui, mas falhou ao gravar na planilha: ' + err.message, true);
+  }finally{
+    btn.disabled=false; btn.textContent='Confirmar';
+    renderGoals();
+  }
+}
+
+async function fetchReservaLedger(){
+  if(!isConfigured()) return;
+  try{
+    const json = await apiGet();
+    if(json && json.ok){
+      DATA.reservaMovimentos = json.reservaMovimentos || [];
+      liveStatus.reserva = 'live';
+      renderGoals();
+    }
+  }catch(err){ liveStatus.reserva = 'cached'; }
 }
 
 /* ================= LIVE FETCH (best-effort, com fallback ao snapshot) ================= */
@@ -786,7 +1164,14 @@ async function fetchLive(){
 initControls();
 fullRender();
 fetchLive();
-setInterval(fetchLive, 60000);
+fetchReservaLedger();
+setInterval(()=>{ fetchLive(); fetchReservaLedger(); }, 60000);
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('service-worker.js').catch(()=>{});
+  });
+}
 </script>
 </body>
 </html>
