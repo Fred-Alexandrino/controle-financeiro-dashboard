@@ -1949,12 +1949,26 @@ function scheduleLiveResync(){
   setTimeout(()=>{ fetchLive(); fetchReservaLedger(); }, 2200);
 }
 
+async function tryFetchCartoesViaAppsScript(){
+  const json = await apiGet();
+  if(!json || !json.ok) throw new Error('resposta invalida do Apps Script');
+  const fred = json.cartaoFred || [];
+  const janyne = json.cartaoJanyne || [];
+  if(!fred.length && !janyne.length) throw new Error('nenhuma transacao encontrada via Apps Script');
+  return { fred, janyne };
+}
+
 async function fetchLive(){
   document.getElementById('liveText').textContent = 'atualizando…';
+
+  const cartoesPromise = isConfigured()
+    ? tryFetchCartoesViaAppsScript()
+    : Promise.all([tryFetchCartao('cartão fred'), tryFetchCartao('cartão janyne')]).then(([f,j])=>({fred:f, janyne:j}));
+
   const results = await Promise.allSettled([
-    tryFetchDashboard(), tryFetchPainel(), tryFetchFixos(), tryFetchCartao('cartão fred'), tryFetchCartao('cartão janyne')
+    tryFetchDashboard(), tryFetchPainel(), tryFetchFixos(), cartoesPromise
   ]);
-  const [dash, painel, fixos, fred, janyne] = results;
+  const [dash, painel, fixos, cartoes] = results;
 
   if(dash.status==='fulfilled'){
     DATA.kpisGerais = dash.value.kpisGerais;
@@ -1980,9 +1994,9 @@ async function fetchLive(){
     liveStatus.fixos='live';
   } else liveStatus.fixos='cached';
 
-  if(fred.status==='fulfilled' && janyne.status==='fulfilled'){
-    DATA.cartaoFred = fred.value;
-    DATA.cartaoJanyne = janyne.value;
+  if(cartoes.status==='fulfilled'){
+    DATA.cartaoFred = cartoes.value.fred;
+    DATA.cartaoJanyne = cartoes.value.janyne;
     liveStatus.cartoes='live';
   } else liveStatus.cartoes='cached';
   mesclarPendentes();
