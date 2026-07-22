@@ -1605,6 +1605,17 @@ function populateCategorySelect(){
 
 async function onExpenseSubmit(e){
   e.preventDefault();
+  try{
+    await onExpenseSubmitInner(e);
+  }catch(err){
+    console.error('Erro em onExpenseSubmit:', err);
+    showToast('Erro inesperado ao salvar: ' + err.message, true);
+    const btn = document.getElementById('expenseSubmit');
+    btn.disabled = false; btn.textContent = 'Salvar gasto';
+  }
+}
+
+async function onExpenseSubmitInner(e){
   const btn = document.getElementById('expenseSubmit');
   let payload;
   let destinoCompra = null; // 'cartao' | 'variavel', só usado quando expenseTipoAtual==='compra'
