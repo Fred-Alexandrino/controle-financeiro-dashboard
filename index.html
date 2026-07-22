@@ -669,6 +669,19 @@ async function apiGet(){
   return await res.json();
 }
 
+async function apiGetComRetry(tentativas=3, delayMs=1800){
+  let ultimoErro;
+  for(let i=0;i<tentativas;i++){
+    try{
+      const json = await apiGet();
+      if(json && json.ok) return json;
+      ultimoErro = new Error('resposta sem confirmação de sucesso');
+    }catch(err){ ultimoErro = err; }
+    if(i < tentativas-1) await new Promise(r=>setTimeout(r, delayMs));
+  }
+  throw ultimoErro || new Error('falha desconhecida');
+}
+
 /* ================= SNAPSHOT DATA (fallback confiável) ================= */
 const SNAPSHOT = {
   kpisGerais: { faturaAgo:13325.50, totalPagarCartoes:40481.94, gastoFixoMensal:14500.00, desembolsoTotal:228981.94 },
@@ -1784,7 +1797,7 @@ async function onReservaSubmit(e){
 async function fetchReservaLedger(){
   if(!isConfigured()) return;
   try{
-    const json = await apiGet();
+    const json = await apiGetComRetry();
     if(json && json.ok){
       DATA.reservaMovimentos = json.reservaMovimentos || [];
       if(json.faturaAjustes){
@@ -1813,7 +1826,7 @@ async function fetchReservaLedger(){
 async function fetchGastosVariaveis(){
   if(!isConfigured()) return;
   try{
-    const json = await apiGet();
+    const json = await apiGetComRetry();
     if(json && json.ok && json.gastosVariaveis){
       DATA.gastosVariaveis = json.gastosVariaveis;
       liveStatus.variaveis = 'live';
@@ -1982,7 +1995,7 @@ function scheduleLiveResync(){
 }
 
 async function tryFetchTudoViaAppsScript(){
-  const json = await apiGet();
+  const json = await apiGetComRetry();
   if(!json || !json.ok) throw new Error('resposta invalida do Apps Script');
   return json;
 }
@@ -2229,7 +2242,7 @@ initDragReorder();
 initCollapsible();
 fullRender();
 
-showToast('Buscando dados mais recentes da planilha…');
+showToast('Buscando dados mais recentes da planilha… (pode levar alguns segundos na primeira vez)');
 Promise.allSettled([fetchLive(), fetchReservaLedger()]).then(()=>{
   const allLive = Object.values(liveStatus).every(v=>v==='live');
   showToast(allLive ? 'Dados atualizados ✓' : 'Carregado (alguns blocos usando dados salvos — toque em "atualizar agora" pra tentar de novo)');
