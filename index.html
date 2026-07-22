@@ -907,10 +907,23 @@ const MES_LABEL_TO_YYYYMM = {
   'jan.-27':'2027-01','fev.-27':'2027-02','mar.-27':'2027-03','abr.-27':'2027-04','mai.-27':'2027-05',
   'jun.-27':'2027-06','jul.-27':'2027-07','ago.-27':'2027-08'
 };
+
+function mesLabelParaData(dataStr){
+  // encontra o mes rastreado correspondente a uma data; datas fora do intervalo
+  // (antes do 1o mes ou depois do ultimo) sao "grudadas" na ponta mais proxima,
+  // pra nenhum gasto ficar invisivel em todos os cards por cair fora da janela de 13 meses
+  if(!dataStr) return null;
+  const alvo = String(dataStr).slice(0,7);
+  const entradas = Object.entries(MES_LABEL_TO_YYYYMM); // já em ordem cronológica
+  for(const [label, ym] of entradas){ if(ym === alvo) return label; }
+  if(alvo < entradas[0][1]) return entradas[0][0];
+  if(alvo > entradas[entradas.length-1][1]) return entradas[entradas.length-1][0];
+  return null;
+}
+
 function dataNoMes(dataStr, mesLabel){
   if(!dataStr) return false;
-  const alvo = MES_LABEL_TO_YYYYMM[mesLabel];
-  return alvo && String(dataStr).slice(0,7) === alvo;
+  return mesLabelParaData(dataStr) === mesLabel;
 }
 function extrasPessoaMes(pessoa, mesLabel){
   const compras = TX.filter(t=>t.tipoCompra==='pontual' && t.cartao===pessoa && dataNoMes(t.data, mesLabel))
