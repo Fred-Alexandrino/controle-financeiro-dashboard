@@ -1611,6 +1611,15 @@ function abrirEdicaoVariavel(idx){
   document.getElementById('camposQuem').style.display = 'block';
   document.getElementById('labelValorCompra').textContent = 'Valor da compra';
 
+  // reseta os campos de crédito pra um estado padrão consistente, mesmo escondidos
+  // (evita herdar valores de uma sessão de edição/adição anterior)
+  document.getElementById('expCartao').value = 'Fred';
+  formaPagamentoAtual = 'avista';
+  document.querySelectorAll('#pagamentoToggle button[data-pagamento]').forEach(b=>b.classList.toggle('active', b.dataset.pagamento==='avista'));
+  document.getElementById('camposParcelado').style.display = 'none';
+  document.getElementById('expTotalParcelas').value = 2;
+  document.getElementById('expParcelasPagas').value = 0;
+
   document.getElementById('expData').value = item.data || new Date().toISOString().slice(0,10);
   document.getElementById('expEstabelecimento').value = item.descricao;
   document.getElementById('expCategoriaCartao').value = item.categoria;
