@@ -817,7 +817,19 @@ function buildTransactions(){
   return rows;
 }
 let TX = buildTransactions();
-let pendingExpenses = []; // gastos de cartão adicionados nesta sessão, ainda não confirmados na busca ao vivo
+
+const PENDING_KEY = 'caderneta_pending_cartao_v1';
+const PENDING_VAR_KEY = 'caderneta_pending_variavel_v1';
+
+function carregarPendentes(key){
+  try{ return JSON.parse(localStorage.getItem(key) || '[]'); }catch(e){ return []; }
+}
+function salvarPendentes(key, arr){
+  try{ localStorage.setItem(key, JSON.stringify(arr)); }catch(e){}
+}
+
+let pendingExpenses = carregarPendentes(PENDING_KEY); // gastos de cartão adicionados recentemente, ainda não confirmados na busca ao vivo
+let pendingVariaveis = carregarPendentes(PENDING_VAR_KEY); // idem, para gastos recorrentes
 
 function chavePendente(estab, data, valorParcela){
   return `${(estab||'').trim().toLowerCase()}|${data||''}|${Number(valorParcela).toFixed(2)}`;
@@ -831,8 +843,23 @@ function mesclarPendentes(){
     alvo.push([p.estabelecimento, p.parcelasRestantes, p.valorParcela, p.valorAberto, p.categoria, p.data, p.totalParcelas]);
     return true; // ainda nao confirmado, mantem pendente
   });
+  salvarPendentes(PENDING_KEY, pendingExpenses);
   TX = buildTransactions();
 }
+
+function mesclarPendentesVariaveis(){
+  pendingVariaveis = pendingVariaveis.filter(p=>{
+    const jaExiste = DATA.gastosVariaveis.some(r => chavePendente(r.descricao, r.data, r.valor) === chavePendente(p.descricao, p.data, p.valor));
+    if(jaExiste) return false;
+    DATA.gastosVariaveis.push(p);
+    return true;
+  });
+  salvarPendentes(PENDING_VAR_KEY, pendingVariaveis);
+}
+
+// aplica qualquer pendente salvo de uma sessão anterior assim que os dados carregam
+mesclarPendentes();
+mesclarPendentesVariaveis();
 
 /* ================= CHARTS ================= */
 let chartProjecao, chartCategoria;
@@ -1158,6 +1185,8 @@ async function excluirTransacaoCartao(cartao, idx){
   if(!confirm(`Excluir "${item[0]}" (${fmt.format(item[2])})?`)) return;
   const [estabelecimento, , valorParcela, , categoria, data] = item;
   alvo.splice(idx, 1);
+  pendingExpenses = pendingExpenses.filter(p => chavePendente(p.estabelecimento,p.data,p.valorParcela) !== chavePendente(estabelecimento,data,valorParcela));
+  salvarPendentes(PENDING_KEY, pendingExpenses);
   TX = buildTransactions();
   fullRender();
   if(isConfigured()){
@@ -1176,6 +1205,8 @@ async function excluirGastoVariavel(idx){
   if(!item) return;
   if(!confirm(`Excluir "${item.descricao}" (${fmt.format(item.valor)})?`)) return;
   DATA.gastosVariaveis.splice(idx, 1);
+  pendingVariaveis = pendingVariaveis.filter(p => chavePendente(p.descricao,p.data,p.valor) !== chavePendente(item.descricao,item.data,item.valor));
+  salvarPendentes(PENDING_VAR_KEY, pendingVariaveis);
   fullRender();
   if(isConfigured()){
     try{
@@ -1596,9 +1627,13 @@ async function onExpenseSubmit(e){
       cartao: payload.cartao, estabelecimento: payload.estabelecimento, data: payload.data,
       valorParcela: payload.valorParcela, valorAberto, parcelasRestantes: restantes, categoria: payload.categoria, totalParcelas: payload.totalParcelas
     });
+    salvarPendentes(PENDING_KEY, pendingExpenses);
     TX = buildTransactions();
   } else if(destinoCompra==='variavel'){
-    DATA.gastosVariaveis.push({data:payload.data, descricao:payload.descricao, categoria:payload.categoria, responsavel:payload.responsavel, formaPagamento:payload.formaPagamento, valor:payload.valor});
+    const novoItem = {data:payload.data, descricao:payload.descricao, categoria:payload.categoria, responsavel:payload.responsavel, formaPagamento:payload.formaPagamento, valor:payload.valor};
+    DATA.gastosVariaveis.push(novoItem);
+    pendingVariaveis.push(novoItem);
+    salvarPendentes(PENDING_VAR_KEY, pendingVariaveis);
   } else {
     DATA.gastosFixos.push({despesa:payload.despesa, valor:payload.valor});
     DATA.gastosFixosTotal += payload.valor;
@@ -1704,6 +1739,7 @@ async function fetchReservaLedger(){
         DATA.gastosVariaveis = json.gastosVariaveis;
         liveStatus.variaveis = 'live';
       }
+      mesclarPendentesVariaveis();
       liveStatus.reserva = 'live';
       renderGoals();
       renderKpiMes();
@@ -1722,6 +1758,7 @@ async function fetchGastosVariaveis(){
     if(json && json.ok && json.gastosVariaveis){
       DATA.gastosVariaveis = json.gastosVariaveis;
       liveStatus.variaveis = 'live';
+      mesclarPendentesVariaveis();
       renderGastosVariaveis();
       renderLiveTags();
     }
