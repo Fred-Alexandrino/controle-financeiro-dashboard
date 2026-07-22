@@ -2172,8 +2172,12 @@ initMoneyInputs();
 initDragReorder();
 initCollapsible();
 fullRender();
-fetchLive();
-fetchReservaLedger();
+
+showToast('Buscando dados mais recentes da planilha…');
+Promise.allSettled([fetchLive(), fetchReservaLedger()]).then(()=>{
+  const allLive = Object.values(liveStatus).every(v=>v==='live');
+  showToast(allLive ? 'Dados atualizados ✓' : 'Carregado (alguns blocos usando dados salvos — toque em "atualizar agora" pra tentar de novo)');
+});
 setInterval(()=>{ fetchLive(); fetchReservaLedger(); }, 60000);
 
 if('serviceWorker' in navigator){
