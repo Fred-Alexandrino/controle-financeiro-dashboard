@@ -1704,6 +1704,7 @@ async function onExpenseSubmit(e){
   }catch(err){
     console.error('Erro em onExpenseSubmit:', err);
     showToast('Erro inesperado ao salvar: ' + err.message, true);
+    alert('Erro ao salvar: ' + err.message);
     const btn = document.getElementById('expenseSubmit');
     btn.disabled = false; btn.textContent = 'Salvar gasto';
   }
