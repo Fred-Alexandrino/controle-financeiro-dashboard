@@ -828,11 +828,28 @@ function gastoFixoValorEfetivo(despesa, mes){
 function totalFixosMes(mes){
   return DATA.gastosFixos.reduce((s,f)=> s + gastoFixoValorEfetivo(f.despesa, mes), 0);
 }
+// Uma compra aparece na fatura do seu mês de cobrança inicial (F, definido pelo ciclo
+// do cartão) e em todos os meses seguintes, até (F + parcelasRestantes) inclusive —
+// exatamente como a própria planilha original já calculava (confirmado batendo com
+// os 13 meses reais de Fred e Janyne).
+function faturaCartaoMes(pessoa, mesLabel){
+  const alvoIdx = MES_LABELS_ORDENADOS.indexOf(mesLabel);
+  if(alvoIdx < 0) return 0;
+  return TX.filter(t=>t.cartao===pessoa).reduce((soma, t)=>{
+    const fLabel = mesFaturaCartao(t.data, pessoa);
+    const fIdx = MES_LABELS_ORDENADOS.indexOf(fLabel);
+    if(fIdx < 0) return soma;
+    const restantes = t.parcelasRestantes || 0;
+    if(alvoIdx >= fIdx && alvoIdx <= fIdx + restantes) return soma + t.valorParcela;
+    return soma;
+  }, 0);
+}
+
 function rowEfetiva(row){
   const aFred = ajusteFor('Fred', row.mes);
   const aJanyne = ajusteFor('Janyne', row.mes);
-  const fred = aFred !== null ? aFred : row.fred;
-  const janyne = aJanyne !== null ? aJanyne : row.janyne;
+  const fred = aFred !== null ? aFred : faturaCartaoMes('Fred', row.mes);
+  const janyne = aJanyne !== null ? aJanyne : faturaCartaoMes('Janyne', row.mes);
   const fixos = totalFixosMes(row.mes);
   return {
     fixos, fred, janyne,
@@ -990,6 +1007,7 @@ const MES_LABEL_TO_YYYYMM = {
   'jan.-27':'2027-01','fev.-27':'2027-02','mar.-27':'2027-03','abr.-27':'2027-04','mai.-27':'2027-05',
   'jun.-27':'2027-06','jul.-27':'2027-07','ago.-27':'2027-08'
 };
+const MES_LABELS_ORDENADOS = Object.keys(MES_LABEL_TO_YYYYMM);
 
 function mesLabelParaData(dataStr){
   // encontra o mes rastreado correspondente a uma data; datas fora do intervalo
@@ -1040,10 +1058,9 @@ function compraNaFaturaDoMes(dataStr, cartao, mesLabel){
   return mesFaturaCartao(dataStr, cartao) === mesLabel;
 }
 function extrasPessoaMes(pessoa, mesLabel){
-  // Compras no Cartão (à vista) e Parcelas já moram na mesma aba que a planilha usa
-  // pra calcular a fatura (Painel) — somar de novo aqui duplicaria o valor.
-  // Só os Gastos Recorrentes ficam numa aba separada que a planilha não enxerga,
-  // por isso só eles entram como "extra" por cima da fatura.
+  // Compras no Cartão e Parcelas já entram no cálculo de faturaCartaoMes() acima.
+  // Só os Gastos Recorrentes (Dinheiro/Pix/Débito) ficam numa aba separada e
+  // precisam ser somados por cima.
   const recorrentes = DATA.gastosVariaveis.filter(r=>r.responsavel===pessoa && dataNoMes(r.data, mesLabel))
     .reduce((s,r)=>s+r.valor, 0);
   return recorrentes;
@@ -1702,7 +1719,10 @@ async function onExpenseSubmitInner(e){
   // aplica localmente na hora (otimista), independente de estar configurado
   const emEdicao = editContext;
   if(destinoCompra==='cartao'){
-    const restantes = Math.max(0, payload.totalParcelas - payload.parcelasPagas);
+    // -1 porque a cobrança do mês atual já é a 1ª aparição na fatura; "restantes" aqui
+    // representa só as aparições ADICIONAIS depois dessa (confirmado batendo com os
+    // 13 meses reais de Fred/Janyne — ver faturaCartaoMes).
+    const restantes = Math.max(0, payload.totalParcelas - payload.parcelasPagas - 1);
     const alvo = payload.cartao==='Fred' ? DATA.cartaoFred : DATA.cartaoJanyne;
     const valorAberto = restantes*payload.valorParcela;
     alvo.push([payload.estabelecimento, restantes, payload.valorParcela, valorAberto, payload.categoria, payload.data, payload.totalParcelas]);
