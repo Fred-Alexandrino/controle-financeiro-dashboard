@@ -1040,11 +1040,13 @@ function compraNaFaturaDoMes(dataStr, cartao, mesLabel){
   return mesFaturaCartao(dataStr, cartao) === mesLabel;
 }
 function extrasPessoaMes(pessoa, mesLabel){
-  const compras = TX.filter(t=>t.tipoCompra==='pontual' && t.cartao===pessoa && compraNaFaturaDoMes(t.data, pessoa, mesLabel))
-    .reduce((s,t)=>s+t.valorParcela, 0);
+  // Compras no Cartão (à vista) e Parcelas já moram na mesma aba que a planilha usa
+  // pra calcular a fatura (Painel) — somar de novo aqui duplicaria o valor.
+  // Só os Gastos Recorrentes ficam numa aba separada que a planilha não enxerga,
+  // por isso só eles entram como "extra" por cima da fatura.
   const recorrentes = DATA.gastosVariaveis.filter(r=>r.responsavel===pessoa && dataNoMes(r.data, mesLabel))
     .reduce((s,r)=>s+r.valor, 0);
-  return compras + recorrentes;
+  return recorrentes;
 }
 
 function kpiCardEdit(label, value, cartao, mes, ajustado){
