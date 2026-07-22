@@ -452,8 +452,8 @@ footer a{color:var(--cover);}
     </div>
     <form id="fixoForm">
       <div class="form-row"><label>Nome da despesa</label><input type="text" id="fixoNome"></div>
-      <div class="form-row"><label>Valor padrão (usado quando não há valor específico do mês)</label><input type="number" step="0.01" id="fixoValorPadrao"></div>
-      <div class="form-row"><label>Valor específico para <span id="fixoMesAtual"></span> (opcional)</label><input type="number" step="0.01" id="fixoValorMes" placeholder="deixe em branco para usar o padrão"></div>
+      <div class="form-row"><label>Valor padrão (usado quando não há valor específico do mês)</label><input type="text" inputmode="numeric" id="fixoValorPadrao" placeholder="0,00"></div>
+      <div class="form-row"><label>Valor específico para <span id="fixoMesAtual"></span> (opcional)</label><input type="text" inputmode="numeric" id="fixoValorMes" placeholder="deixe em branco para usar o padrão"></div>
       <button type="submit" class="btn-primary">Salvar</button>
       <button type="button" class="btn-primary" id="fixoExcluir" style="background:transparent; color:var(--rust); border:1px solid var(--rust); margin-top:8px;">Excluir este gasto fixo</button>
     </form>
@@ -542,7 +542,7 @@ footer a{color:var(--cover);}
 
         <div class="form-row">
           <label id="labelValorCompra">Valor da compra</label>
-          <input type="number" step="0.01" id="expValorParcela" placeholder="0,00">
+          <input type="text" inputmode="numeric" id="expValorParcela" placeholder="0,00">
         </div>
       </div>
       <div id="fieldsFixo" style="display:none;">
@@ -552,7 +552,7 @@ footer a{color:var(--cover);}
         </div>
         <div class="form-row">
           <label>Valor mensal</label>
-          <input type="number" step="0.01" id="expValorFixo" placeholder="0,00">
+          <input type="text" inputmode="numeric" id="expValorFixo" placeholder="0,00">
         </div>
       </div>
       <button type="submit" class="btn-primary" id="expenseSubmit">Salvar gasto</button>
@@ -571,7 +571,7 @@ footer a{color:var(--cover);}
       Sem o Apps Script configurado, esse ajuste fica só neste navegador (não é salvo na planilha).
     </div>
     <form id="ajusteForm">
-      <div class="form-row"><label>Valor real da fatura</label><input type="number" step="0.01" id="ajusteValor" placeholder="0,00"></div>
+      <div class="form-row"><label>Valor real da fatura</label><input type="text" inputmode="numeric" id="ajusteValor" placeholder="0,00"></div>
       <button type="submit" class="btn-primary">Salvar ajuste</button>
       <button type="button" class="btn-primary" id="ajusteRemover" style="background:transparent; color:var(--rust); border:1px solid var(--rust); margin-top:8px;">Remover ajuste (voltar ao calculado)</button>
     </form>
@@ -585,7 +585,7 @@ footer a{color:var(--cover);}
     </div>
     <form id="reservaForm">
       <div class="form-row"><label>Objetivo</label><input type="text" id="resvObjetivo" disabled></div>
-      <div class="form-row"><label>Valor</label><input type="number" step="0.01" id="resvValor" placeholder="0,00"></div>
+      <div class="form-row"><label>Valor</label><input type="text" inputmode="numeric" id="resvValor" placeholder="0,00"></div>
       <div class="form-row"><label>Observação (opcional)</label><input type="text" id="resvObs" placeholder="ex: bônus de dezembro"></div>
       <button type="submit" class="btn-primary" id="reservaSubmit">Confirmar</button>
     </form>
@@ -595,6 +595,33 @@ footer a{color:var(--cover);}
 <script>
 /* ================= FORMAT HELPERS ================= */
 const fmt = new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
+const fmtSimples = new Intl.NumberFormat('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:2});
+
+/* ================= MÁSCARA DE VALOR EM DINHEIRO (digitação só de números, vírgula automática) ================= */
+const MONEY_INPUT_IDS = ['expValorParcela','expValorFixo','ajusteValor','resvValor','fixoValorPadrao','fixoValorMes'];
+
+function moneyValue(id){
+  const raw = document.getElementById(id).value;
+  const digits = String(raw).replace(/\D/g,'');
+  if(!digits) return null;
+  return parseInt(digits,10)/100;
+}
+function setMoneyValue(id, num){
+  const el = document.getElementById(id);
+  if(num===undefined || num===null || num===''){ el.value=''; return; }
+  el.value = fmtSimples.format(Number(num));
+}
+function initMoneyInputs(){
+  MONEY_INPUT_IDS.forEach(id=>{
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.addEventListener('input', ()=>{
+      const digits = el.value.replace(/\D/g,'');
+      if(!digits){ el.value=''; return; }
+      el.value = fmtSimples.format(parseInt(digits,10)/100);
+    });
+  });
+}
 const fmt0 = new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0});
 function n(v){ if(v===null||v===undefined) return 0; if(typeof v==='number') return v;
   const s = String(v).replace(/[R$\s]/g,'').replace(/\./g,'').replace(',','.').replace(/[()]/g,'');
@@ -1391,18 +1418,18 @@ function openFixoModal(despesa){
   document.getElementById('fixoMesAtual').textContent = state.mes;
   const item = DATA.gastosFixos.find(f=>f.despesa===despesa);
   document.getElementById('fixoNome').value = item ? item.despesa : '';
-  document.getElementById('fixoValorPadrao').value = item ? item.valor : '';
+  setMoneyValue('fixoValorPadrao', item ? item.valor : '');
   const over = DATA.gastosFixosAjustes[state.mes] && DATA.gastosFixosAjustes[state.mes][despesa];
-  document.getElementById('fixoValorMes').value = (over !== undefined && over !== null) ? over : '';
+  setMoneyValue('fixoValorMes', (over !== undefined && over !== null) ? over : '');
   openModal('modalFixo');
 }
 
 async function onFixoSubmit(e){
   e.preventDefault();
   const novoNome = document.getElementById('fixoNome').value.trim();
-  const novoValorPadrao = parseFloat(document.getElementById('fixoValorPadrao').value);
+  const novoValorPadrao = moneyValue('fixoValorPadrao');
   const valorMesStr = document.getElementById('fixoValorMes').value;
-  if(!novoNome || isNaN(novoValorPadrao)){ showToast('Preencha nome e valor padrão.', true); return; }
+  if(!novoNome || novoValorPadrao===null || isNaN(novoValorPadrao)){ showToast('Preencha nome e valor padrão.', true); return; }
   const oldDespesa = fixoAtual;
 
   const item = DATA.gastosFixos.find(f=>f.despesa===oldDespesa);
@@ -1414,7 +1441,7 @@ async function onFixoSubmit(e){
   }
   if(!DATA.gastosFixosAjustes[state.mes]) DATA.gastosFixosAjustes[state.mes] = {};
   if(valorMesStr === ''){ delete DATA.gastosFixosAjustes[state.mes][novoNome]; }
-  else { DATA.gastosFixosAjustes[state.mes][novoNome] = parseFloat(valorMesStr); }
+  else { DATA.gastosFixosAjustes[state.mes][novoNome] = moneyValue('fixoValorMes'); }
 
   closeModal('modalFixo');
   fullRender();
@@ -1423,7 +1450,7 @@ async function onFixoSubmit(e){
     try{
       await apiPost({ action:'editGastoFixo', oldDespesa, despesa:novoNome, valor:novoValorPadrao });
       if(valorMesStr === '') await apiPost({ action:'setGastoFixoMes', despesa:novoNome, mes:state.mes, valor:null });
-      else await apiPost({ action:'setGastoFixoMes', despesa:novoNome, mes:state.mes, valor:parseFloat(valorMesStr) });
+      else await apiPost({ action:'setGastoFixoMes', despesa:novoNome, mes:state.mes, valor:moneyValue('fixoValorMes') });
       showToast('Salvo na planilha ✓');
       scheduleLiveResync();
     }catch(err){ showToast('Aplicado aqui, mas falhou ao salvar: ' + err.message, true); }
@@ -1453,13 +1480,13 @@ function openAjusteModal(cartao, mes){
   document.getElementById('ajusteConfigWarning').style.display = isConfigured() ? 'none' : 'block';
   document.getElementById('ajusteModalTitle').textContent = `Ajustar fatura — ${cartao} · ${mes}`;
   const atual = ajusteFor(cartao, mes);
-  document.getElementById('ajusteValor').value = atual !== null ? atual : '';
+  setMoneyValue('ajusteValor', atual !== null ? atual : '');
   openModal('modalAjuste');
 }
 
 async function onAjusteSubmit(e){
   e.preventDefault();
-  const valor = parseFloat(document.getElementById('ajusteValor').value);
+  const valor = moneyValue('ajusteValor');
   if(!valor || valor<0){ showToast('Informe um valor válido.', true); return; }
   const { cartao, mes } = ajusteAtual;
   if(!DATA.faturaAjustes[cartao]) DATA.faturaAjustes[cartao] = {};
@@ -1514,7 +1541,7 @@ function abrirEdicaoCartao(cartao, idx){
   document.getElementById('expData').value = data || new Date().toISOString().slice(0,10);
   document.getElementById('expEstabelecimento').value = estabelecimento;
   document.getElementById('expCategoriaCartao').value = categoria;
-  document.getElementById('expValorParcela').value = valorParcela;
+  setMoneyValue('expValorParcela', valorParcela);
 
   const parcelado = (totalParcelas && totalParcelas>1);
   formaPagamentoAtual = parcelado ? 'parcelado' : 'avista';
@@ -1552,7 +1579,7 @@ function abrirEdicaoVariavel(idx){
   document.getElementById('expEstabelecimento').value = item.descricao;
   document.getElementById('expCategoriaCartao').value = item.categoria;
   document.getElementById('expResponsavelVar').value = item.responsavel;
-  document.getElementById('expValorParcela').value = item.valor;
+  setMoneyValue('expValorParcela', item.valor);
 
   openModal('modalExpense');
 }
@@ -1584,7 +1611,7 @@ async function onExpenseSubmit(e){
 
   if(expenseTipoAtual==='compra'){
     const descricao = document.getElementById('expEstabelecimento').value.trim();
-    const valorParcela = parseFloat(document.getElementById('expValorParcela').value);
+    const valorParcela = moneyValue('expValorParcela');
     const categoria = document.getElementById('expCategoriaCartao').value;
     const data = document.getElementById('expData').value || new Date().toISOString().slice(0,10);
     const formaPagamento = document.getElementById('expFormaPagamento').value;
@@ -1611,7 +1638,7 @@ async function onExpenseSubmit(e){
     }
   } else {
     const despesa = document.getElementById('expDespesa').value.trim();
-    const valor = parseFloat(document.getElementById('expValorFixo').value);
+    const valor = moneyValue('expValorFixo');
     if(!despesa || !valor){ showToast('Preencha despesa e valor.', true); return; }
     payload = { action:'addExpense', tipo:'fixo', despesa, valor };
   }
@@ -1687,7 +1714,7 @@ function openReservaModal(objetivo, tipo){
   document.getElementById('resvObjetivo').value = objetivo;
   document.getElementById('reservaForm').dataset.objetivo = objetivo;
   document.getElementById('reservaForm').dataset.tipo = tipo;
-  document.getElementById('resvValor').value = '';
+  setMoneyValue('resvValor', '');
   document.getElementById('resvObs').value = '';
   openModal('modalReserva');
 }
@@ -1696,7 +1723,7 @@ async function onReservaSubmit(e){
   e.preventDefault();
   const form = e.target;
   const objetivo = form.dataset.objetivo, tipo = form.dataset.tipo;
-  const valor = parseFloat(document.getElementById('resvValor').value);
+  const valor = moneyValue('resvValor');
   if(!valor || valor<=0){ showToast('Informe um valor válido.', true); return; }
   const obs = document.getElementById('resvObs').value.trim();
   const btn = document.getElementById('reservaSubmit');
@@ -2116,6 +2143,7 @@ function onSectionDragEnd(){
 
 /* ================= INIT ================= */
 initControls();
+initMoneyInputs();
 initDragReorder();
 initCollapsible();
 fullRender();
