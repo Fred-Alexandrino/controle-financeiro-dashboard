@@ -483,7 +483,7 @@ footer a{color:var(--cover);}
 <!-- MODAL: Adicionar gasto -->
 <div class="modal-overlay" id="modalExpense">
   <div class="modal-sheet">
-    <div class="modal-head"><h3>Adicionar gasto</h3><button class="modal-close" data-close>✕</button></div>
+    <div class="modal-head"><h3 id="expenseModalTitle">Adicionar gasto</h3><button class="modal-close" data-close>✕</button></div>
     <div id="expenseConfigWarning" class="config-warning" style="display:none;">
       O link de gravação ainda não foi configurado. Abra ⚙ Configurações antes de salvar — sem isso o gasto fica só nesta tela, não vai pra planilha.
     </div>
@@ -1041,7 +1041,7 @@ function renderTable(){
       <td><span class="cat-chip" style="background:${catColor(t.categoria)}">${t.categoria}</span></td>
       <td>${t.cartao}</td>
       <td class="mono">${t.parcelasRestantes}</td>
-      <td><button type="button" class="btn-del-row" data-del-cartao="${t.cartao}" data-del-idx="${t._srcIdx}" title="Excluir">🗑</button></td>
+      <td><button type="button" class="btn-del-row" data-edit-cartao-tx="${t.cartao}" data-edit-idx-tx="${t._srcIdx}" title="Editar">✎</button> <button type="button" class="btn-del-row" data-del-cartao="${t.cartao}" data-del-idx="${t._srcIdx}" title="Excluir">🗑</button></td>
     </tr>`).join('');
   wireDeleteButtons('#txBody', 'cartao');
 }
@@ -1065,7 +1065,7 @@ function renderTableCompras(){
       <td>${t.estabelecimento}</td>
       <td><span class="cat-chip" style="background:${catColor(t.categoria)}">${t.categoria}</span></td>
       <td>${t.cartao}</td>
-      <td><button type="button" class="btn-del-row" data-del-cartao="${t.cartao}" data-del-idx="${t._srcIdx}" title="Excluir">🗑</button></td>
+      <td><button type="button" class="btn-del-row" data-edit-cartao-tx="${t.cartao}" data-edit-idx-tx="${t._srcIdx}" title="Editar">✎</button> <button type="button" class="btn-del-row" data-del-cartao="${t.cartao}" data-del-idx="${t._srcIdx}" title="Excluir">🗑</button></td>
     </tr>`).join('');
   wireDeleteButtons('#txComprasBody', 'cartao');
 }
@@ -1090,7 +1090,7 @@ function renderGastosVariaveis(){
       <td>${r.descricao}</td>
       <td><span class="cat-chip" style="background:${catColor(r.categoria)}">${r.categoria}</span></td>
       <td>${r.responsavel}</td>
-      <td><button type="button" class="btn-del-row" data-del-idx="${idx}" title="Excluir">🗑</button></td>
+      <td><button type="button" class="btn-del-row" data-edit-idx-var="${idx}" title="Editar">✎</button> <button type="button" class="btn-del-row" data-del-idx="${idx}" title="Excluir">🗑</button></td>
     </tr>`;
   }).join('');
   wireDeleteButtons('#txVarBody', 'variavel');
@@ -1102,6 +1102,12 @@ function wireDeleteButtons(containerSel, tipo){
       if(tipo==='cartao') excluirTransacaoCartao(btn.dataset.delCartao, parseInt(btn.dataset.delIdx,10));
       else excluirGastoVariavel(parseInt(btn.dataset.delIdx,10));
     });
+  });
+  document.querySelectorAll(containerSel+' [data-edit-idx-tx]').forEach(btn=>{
+    btn.addEventListener('click', ()=> abrirEdicaoCartao(btn.dataset.editCartaoTx, parseInt(btn.dataset.editIdxTx,10)));
+  });
+  document.querySelectorAll(containerSel+' [data-edit-idx-var]').forEach(btn=>{
+    btn.addEventListener('click', ()=> abrirEdicaoVariavel(parseInt(btn.dataset.editIdxVar,10)));
   });
 }
 
@@ -1235,6 +1241,14 @@ function initControls(){
     document.getElementById('expenseConfigWarning').style.display = isConfigured() ? 'none' : 'block';
     populateCategorySelect();
     resetPagamentoToggle();
+    editContext = null;
+    document.getElementById('expenseModalTitle').textContent = 'Adicionar gasto';
+    document.getElementById('expenseSubmit').textContent = 'Salvar gasto';
+    document.querySelectorAll('.type-toggle button[data-tipo]').forEach(b=>b.classList.toggle('active', b.dataset.tipo==='cartao'));
+    document.getElementById('fieldsCartao').style.display = 'block';
+    document.getElementById('fieldsFixo').style.display = 'none';
+    document.getElementById('fieldsVariavel').style.display = 'none';
+    expenseTipoAtual = 'cartao';
     openModal('modalExpense');
   });
   document.querySelectorAll('.type-toggle button[data-tipo]').forEach(btn=>{
@@ -1273,6 +1287,9 @@ function initControls(){
     document.getElementById('expenseConfigWarning').style.display = isConfigured() ? 'none' : 'block';
     populateCategorySelect();
     resetPagamentoToggle();
+    editContext = null;
+    document.getElementById('expenseModalTitle').textContent = 'Adicionar gasto';
+    document.getElementById('expenseSubmit').textContent = 'Salvar gasto';
     document.querySelectorAll('.type-toggle button[data-tipo]').forEach(b=>b.classList.toggle('active', b.dataset.tipo==='fixo'));
     document.getElementById('fieldsCartao').style.display = 'none';
     document.getElementById('fieldsFixo').style.display = 'block';
@@ -1288,6 +1305,9 @@ function initControls(){
     document.getElementById('expenseConfigWarning').style.display = isConfigured() ? 'none' : 'block';
     populateCategorySelect();
     resetPagamentoToggle();
+    editContext = null;
+    document.getElementById('expenseModalTitle').textContent = 'Adicionar gasto';
+    document.getElementById('expenseSubmit').textContent = 'Salvar gasto';
     document.querySelectorAll('.type-toggle button[data-tipo]').forEach(b=>b.classList.toggle('active', b.dataset.tipo==='variavel'));
     document.getElementById('fieldsCartao').style.display = 'none';
     document.getElementById('fieldsFixo').style.display = 'none';
@@ -1402,6 +1422,67 @@ async function onAjusteRemover(){
 }
 
 let expenseTipoAtual = 'cartao';
+let editContext = null; // {origem:'cartao'|'variavel', cartao, idx, original}
+
+function abrirEdicaoCartao(cartao, idx){
+  const alvo = cartao==='Fred' ? DATA.cartaoFred : DATA.cartaoJanyne;
+  const item = alvo[idx];
+  if(!item) return;
+  const [estabelecimento, parcelasRestantes, valorParcela, , categoria, data, totalParcelas] = item;
+  editContext = { origem:'cartao', cartao, idx, original:{ estabelecimento, valorParcela, categoria, data } };
+
+  populateCategorySelect();
+  document.getElementById('expenseConfigWarning').style.display = isConfigured() ? 'none' : 'block';
+  document.getElementById('expenseModalTitle').textContent = 'Editar lançamento';
+  document.getElementById('expenseSubmit').textContent = 'Salvar alterações';
+
+  document.querySelectorAll('.type-toggle button[data-tipo]').forEach(b=>b.classList.toggle('active', b.dataset.tipo==='cartao'));
+  document.getElementById('fieldsCartao').style.display = 'block';
+  document.getElementById('fieldsFixo').style.display = 'none';
+  document.getElementById('fieldsVariavel').style.display = 'none';
+  expenseTipoAtual = 'cartao';
+
+  document.getElementById('expCartao').value = cartao;
+  document.getElementById('expData').value = data || new Date().toISOString().slice(0,10);
+  document.getElementById('expEstabelecimento').value = estabelecimento;
+  document.getElementById('expCategoriaCartao').value = categoria;
+  document.getElementById('expValorParcela').value = valorParcela;
+
+  const parcelado = (totalParcelas && totalParcelas>1);
+  formaPagamentoAtual = parcelado ? 'parcelado' : 'avista';
+  document.querySelectorAll('#pagamentoToggle button[data-pagamento]').forEach(b=>b.classList.toggle('active', b.dataset.pagamento===formaPagamentoAtual));
+  document.getElementById('camposParcelado').style.display = parcelado ? 'block' : 'none';
+  document.getElementById('labelValorCompra').textContent = parcelado ? 'Valor da parcela' : 'Valor da compra';
+  document.getElementById('expTotalParcelas').value = totalParcelas || 2;
+  document.getElementById('expParcelasPagas').value = totalParcelas ? Math.max(0, totalParcelas - parcelasRestantes) : 0;
+
+  openModal('modalExpense');
+}
+
+function abrirEdicaoVariavel(idx){
+  const item = DATA.gastosVariaveis[idx];
+  if(!item) return;
+  editContext = { origem:'variavel', idx, original:{ descricao:item.descricao, valor:item.valor, responsavel:item.responsavel, data:item.data } };
+
+  populateCategorySelect();
+  document.getElementById('expenseConfigWarning').style.display = isConfigured() ? 'none' : 'block';
+  document.getElementById('expenseModalTitle').textContent = 'Editar lançamento';
+  document.getElementById('expenseSubmit').textContent = 'Salvar alterações';
+
+  document.querySelectorAll('.type-toggle button[data-tipo]').forEach(b=>b.classList.toggle('active', b.dataset.tipo==='variavel'));
+  document.getElementById('fieldsCartao').style.display = 'none';
+  document.getElementById('fieldsFixo').style.display = 'none';
+  document.getElementById('fieldsVariavel').style.display = 'block';
+  expenseTipoAtual = 'variavel';
+
+  document.getElementById('expDataVar').value = item.data || new Date().toISOString().slice(0,10);
+  document.getElementById('expDescricaoVar').value = item.descricao;
+  document.getElementById('expCategoriaVar').value = item.categoria;
+  document.getElementById('expResponsavelVar').value = item.responsavel;
+  document.getElementById('expValorVar').value = item.valor;
+
+  openModal('modalExpense');
+}
 let formaPagamentoAtual = 'avista';
 
 function resetPagamentoToggle(){
@@ -1457,6 +1538,7 @@ async function onExpenseSubmit(e){
   }
 
   // aplica localmente na hora (otimista), independente de estar configurado
+  const emEdicao = editContext;
   if(expenseTipoAtual==='cartao'){
     const restantes = Math.max(0, payload.totalParcelas - payload.parcelasPagas);
     const alvo = payload.cartao==='Fred' ? DATA.cartaoFred : DATA.cartaoJanyne;
@@ -1474,8 +1556,20 @@ async function onExpenseSubmit(e){
     DATA.gastosVariaveis.push({data:payload.data, descricao:payload.descricao, categoria:payload.categoria, responsavel:payload.responsavel, valor:payload.valor});
   }
 
+  // se estava editando um lançamento, remove a versão original agora que a nova já foi criada
+  if(emEdicao){
+    if(emEdicao.origem==='cartao'){
+      const alvoOrig = emEdicao.cartao==='Fred' ? DATA.cartaoFred : DATA.cartaoJanyne;
+      alvoOrig.splice(emEdicao.idx, 1);
+      TX = buildTransactions();
+    } else {
+      DATA.gastosVariaveis.splice(emEdicao.idx, 1);
+    }
+    editContext = null;
+  }
+
   if(!isConfigured()){
-    showToast('Gasto adicionado nesta tela. Configure ⚙ para salvar na planilha.');
+    showToast(emEdicao ? 'Alterado nesta tela. Configure ⚙ para salvar na planilha.' : 'Gasto adicionado nesta tela. Configure ⚙ para salvar na planilha.');
     closeModal('modalExpense'); e.target.reset(); resetPagamentoToggle(); fullRender();
     return;
   }
@@ -1483,7 +1577,16 @@ async function onExpenseSubmit(e){
   btn.disabled = true; btn.textContent = 'Salvando…';
   try{
     await apiPost(payload);
-    showToast('Gasto salvo na planilha ✓');
+    if(emEdicao){
+      try{
+        if(emEdicao.origem==='cartao'){
+          await apiPost({ action:'deleteCartaoTransacao', cartao:emEdicao.cartao, ...emEdicao.original });
+        } else {
+          await apiPost({ action:'deleteGastoVariavel', ...emEdicao.original });
+        }
+      }catch(delErr){ showToast('Novo lançamento salvo, mas não consegui remover o original antigo: ' + delErr.message, true); }
+    }
+    showToast(emEdicao ? 'Lançamento atualizado ✓' : 'Gasto salvo na planilha ✓');
     closeModal('modalExpense'); e.target.reset(); resetPagamentoToggle();
     if(expenseTipoAtual==='variavel') fetchGastosVariaveis();
     else scheduleLiveResync();
