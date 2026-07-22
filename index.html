@@ -360,7 +360,7 @@ footer a{color:var(--cover);}
   <section class="dashboard-section" data-id="comprasCartao">
     <div class="section-title"><span class="drag-handle" title="Arraste para reordenar">⠿</span><span class="n">07</span>Compras no Cartão <span class="live-tag" id="tagCompras"></span><span class="chevron">⌄</span></div>
     <div class="panel">
-      <div class="helper-text" style="margin-bottom:10px;">Compras à vista (pagamento único) nos cartões. Contam na fatura do <strong>mês seguinte</strong> à data da compra — ex: comprou em julho, entra nos "Gastos" de agosto.</div>
+      <div class="helper-text" style="margin-bottom:10px;">Compras à vista no cartão (forma de pagamento "Crédito" no formulário de Compras). Contam na fatura do cartão, seguindo o ciclo de fechamento de cada pessoa.</div>
       <div class="table-controls">
         <span style="font-size:12px; color:var(--ink-soft);" id="tableCountCompras"></span>
       </div>
@@ -410,10 +410,9 @@ footer a{color:var(--cover);}
   <section class="dashboard-section" data-id="variaveis">
     <div class="section-title"><span class="drag-handle" title="Arraste para reordenar">⠿</span><span class="n">09</span>Gastos Recorrentes <span class="live-tag" id="tagVariaveis"></span><span class="chevron">⌄</span></div>
     <div class="panel">
-      <div class="helper-text" style="margin-bottom:10px;">Despesas que se repetem todo mês, mas com valor variável (mercado, farmácia, combustível avulso...).</div>
+      <div class="helper-text" style="margin-bottom:10px;">Compras em Dinheiro, Pix ou Débito (forma de pagamento no formulário de Compras). Contam no mês da própria compra.</div>
       <div class="table-controls">
         <span style="font-size:12px; color:var(--ink-soft);" id="tableCountVar"></span>
-        <button type="button" class="btn-primary" id="addVariavelBtn" style="width:auto; padding:8px 16px; background:transparent; color:var(--cover); border:1px dashed var(--line);">+ Adicionar</button>
       </div>
       <div class="table-scroll">
         <table>
@@ -489,44 +488,61 @@ footer a{color:var(--cover);}
       O link de gravação ainda não foi configurado. Abra ⚙ Configurações antes de salvar — sem isso o gasto fica só nesta tela, não vai pra planilha.
     </div>
     <div class="type-toggle">
-      <button type="button" class="active" data-tipo="cartao">Compra no cartão</button>
+      <button type="button" class="active" data-tipo="compra">Compras</button>
       <button type="button" data-tipo="fixo">Gasto fixo</button>
-      <button type="button" data-tipo="variavel">Gasto variável</button>
     </div>
     <form id="expenseForm">
-      <div id="fieldsCartao">
+      <div id="fieldsCompra">
         <div class="form-row">
-          <label>Cartão</label>
-          <select id="expCartao"><option>Fred</option><option>Janyne</option></select>
+          <label>Forma de pagamento</label>
+          <select id="expFormaPagamento">
+            <option value="Dinheiro">Dinheiro (conta no mês do gasto)</option>
+            <option value="Pix">Pix (conta no mês do gasto)</option>
+            <option value="Débito">Débito (conta no mês do gasto)</option>
+            <option value="Crédito">Crédito (conta na fatura do cartão)</option>
+          </select>
         </div>
         <div class="form-row">
           <label>Data do gasto</label>
           <input type="date" id="expData">
         </div>
         <div class="form-row">
-          <label>Estabelecimento</label>
-          <input type="text" id="expEstabelecimento" placeholder="ex: Amazon, Farmácia...">
+          <label>Descrição / Estabelecimento</label>
+          <input type="text" id="expEstabelecimento" placeholder="ex: Mercado, Amazon, Farmácia...">
         </div>
         <div class="form-row">
           <label>Categoria</label>
           <select id="expCategoriaCartao"></select>
         </div>
-        <div class="form-row">
-          <label>Forma de pagamento</label>
-          <div class="type-toggle" id="pagamentoToggle">
-            <button type="button" data-pagamento="avista" class="active">À vista</button>
-            <button type="button" data-pagamento="parcelado">Parcelado</button>
+
+        <div id="camposQuem" class="form-row">
+          <label>Quem</label>
+          <select id="expResponsavelVar"><option>Casal</option><option>Fred</option><option>Janyne</option></select>
+        </div>
+
+        <div id="camposCredito" style="display:none;">
+          <div class="form-row">
+            <label>Cartão</label>
+            <select id="expCartao"><option>Fred</option><option>Janyne</option></select>
+          </div>
+          <div class="form-row">
+            <label>Parcelamento</label>
+            <div class="type-toggle" id="pagamentoToggle">
+              <button type="button" data-pagamento="avista" class="active">À vista</button>
+              <button type="button" data-pagamento="parcelado">Parcelado</button>
+            </div>
+          </div>
+          <div id="camposParcelado" style="display:none;">
+            <div class="form-grid2">
+              <div class="form-row"><label>Total de parcelas</label><input type="number" id="expTotalParcelas" value="2" min="2"></div>
+              <div class="form-row"><label>Parcelas já pagas</label><input type="number" id="expParcelasPagas" value="0" min="0"></div>
+            </div>
           </div>
         </div>
+
         <div class="form-row">
           <label id="labelValorCompra">Valor da compra</label>
           <input type="number" step="0.01" id="expValorParcela" placeholder="0,00">
-        </div>
-        <div id="camposParcelado" style="display:none;">
-          <div class="form-grid2">
-            <div class="form-row"><label>Total de parcelas</label><input type="number" id="expTotalParcelas" value="2" min="2"></div>
-            <div class="form-row"><label>Parcelas já pagas</label><input type="number" id="expParcelasPagas" value="0" min="0"></div>
-          </div>
         </div>
       </div>
       <div id="fieldsFixo" style="display:none;">
@@ -537,35 +553,6 @@ footer a{color:var(--cover);}
         <div class="form-row">
           <label>Valor mensal</label>
           <input type="number" step="0.01" id="expValorFixo" placeholder="0,00">
-        </div>
-      </div>
-      <div id="fieldsVariavel" style="display:none;">
-        <div class="form-row">
-          <label>Data do gasto</label>
-          <input type="date" id="expDataVar">
-        </div>
-        <div class="form-row">
-          <label>Descrição</label>
-          <input type="text" id="expDescricaoVar" placeholder="ex: Mercado, gasolina avulsa...">
-        </div>
-        <div class="form-row">
-          <label>Categoria</label>
-          <select id="expCategoriaVar"></select>
-        </div>
-        <div class="form-row">
-          <label>Quem</label>
-          <select id="expResponsavelVar"><option>Casal</option><option>Fred</option><option>Janyne</option></select>
-        </div>
-        <div class="form-row">
-          <label>Forma de pagamento</label>
-          <select id="expFormaPagamentoVar">
-            <option value="Pix/Débito/Dinheiro">Pix / Débito / Dinheiro (conta no mês do gasto)</option>
-            <option value="Cartão de crédito">Cartão de crédito (conta na fatura do mês seguinte)</option>
-          </select>
-        </div>
-        <div class="form-row">
-          <label>Valor</label>
-          <input type="number" step="0.01" id="expValorVar" placeholder="0,00">
         </div>
       </div>
       <button type="submit" class="btn-primary" id="expenseSubmit">Salvar gasto</button>
@@ -934,27 +921,41 @@ function proximoYYYYMM(yyyymm){
   const d = new Date(y, m, 1); // m já é 0-indexed em relação ao mês seguinte (m-1+1)
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
 }
-function mesFaturaDaCompra(dataStr){
-  // compra no cartão feita em um mês vira fatura no mês seguinte
+
+// Ciclos de fechamento de cada cartão:
+//  Fred:   fecha dia 18 (janela 19/M a 18/M+1) -> fatura cai no mes M+1
+//  Janyne: fecha fim do mes (janela 01/M a 30-31/M) -> fatura cai no mes M+1
+// Em ambos os casos a fatura é sempre o mês seguinte ao INÍCIO da janela de compra;
+// a diferença é só QUAL mês conta como início pra compras feitas nos primeiros dias.
+function inicioJanelaCompra(dataStr, cartao){
+  const [y,m,d] = String(dataStr).slice(0,10).split('-').map(Number);
+  if(cartao === 'Fred'){
+    if(d >= 19) return { y, m };
+    const pm = m - 1;
+    return pm < 1 ? { y: y-1, m: 12 } : { y, m: pm };
+  }
+  // Janyne (e qualquer outro cartão sem regra especial): janela = mês corrido
+  return { y, m };
+}
+function mesFaturaCartao(dataStr, cartao){
   if(!dataStr) return null;
-  const ym = String(dataStr).slice(0,7);
+  const { y, m } = inicioJanelaCompra(dataStr, cartao);
+  const ym = `${y}-${String(m).padStart(2,'0')}`;
   return mesLabelParaData(proximoYYYYMM(ym) + '-01');
 }
 function dataNoMes(dataStr, mesLabel){
   if(!dataStr) return false;
   return mesLabelParaData(dataStr) === mesLabel;
 }
-function compraNaFaturaDoMes(dataStr, mesLabel){
+function compraNaFaturaDoMes(dataStr, cartao, mesLabel){
   if(!dataStr) return false;
-  return mesFaturaDaCompra(dataStr) === mesLabel;
+  return mesFaturaCartao(dataStr, cartao) === mesLabel;
 }
 function extrasPessoaMes(pessoa, mesLabel){
-  const compras = TX.filter(t=>t.tipoCompra==='pontual' && t.cartao===pessoa && compraNaFaturaDoMes(t.data, mesLabel))
+  const compras = TX.filter(t=>t.tipoCompra==='pontual' && t.cartao===pessoa && compraNaFaturaDoMes(t.data, pessoa, mesLabel))
     .reduce((s,t)=>s+t.valorParcela, 0);
-  const recorrentes = DATA.gastosVariaveis.filter(r=>{
-    if(r.responsavel!==pessoa) return false;
-    return r.formaPagamento==='Cartão de crédito' ? compraNaFaturaDoMes(r.data, mesLabel) : dataNoMes(r.data, mesLabel);
-  }).reduce((s,r)=>s+r.valor, 0);
+  const recorrentes = DATA.gastosVariaveis.filter(r=>r.responsavel===pessoa && dataNoMes(r.data, mesLabel))
+    .reduce((s,r)=>s+r.valor, 0);
   return compras + recorrentes;
 }
 
@@ -1128,7 +1129,7 @@ function renderGastosVariaveis(){
       <td>${r.descricao}</td>
       <td><span class="cat-chip" style="background:${catColor(r.categoria)}">${r.categoria}</span></td>
       <td>${r.responsavel}</td>
-      <td><span class="cat-chip" style="background:${r.formaPagamento==='Cartão de crédito' ? '#5B7B93' : '#6E8272'}">${r.formaPagamento==='Cartão de crédito' ? 'Cartão' : 'Pix/Débito'}</span></td>
+      <td><span class="cat-chip" style="background:#6E8272">${r.formaPagamento || 'Dinheiro'}</span></td>
       <td><button type="button" class="btn-del-row" data-edit-idx-var="${idx}" title="Editar">✎</button> <button type="button" class="btn-del-row" data-del-idx="${idx}" title="Excluir">🗑</button></td>
     </tr>`;
   }).join('');
@@ -1279,15 +1280,14 @@ function initControls(){
   document.getElementById('fabAddExpense').addEventListener('click', ()=>{
     document.getElementById('expenseConfigWarning').style.display = isConfigured() ? 'none' : 'block';
     populateCategorySelect();
-    resetPagamentoToggle();
+    resetFormaPagamento();
     editContext = null;
     document.getElementById('expenseModalTitle').textContent = 'Adicionar gasto';
     document.getElementById('expenseSubmit').textContent = 'Salvar gasto';
-    document.querySelectorAll('.type-toggle button[data-tipo]').forEach(b=>b.classList.toggle('active', b.dataset.tipo==='cartao'));
-    document.getElementById('fieldsCartao').style.display = 'block';
+    document.querySelectorAll('.type-toggle button[data-tipo]').forEach(b=>b.classList.toggle('active', b.dataset.tipo==='compra'));
+    document.getElementById('fieldsCompra').style.display = 'block';
     document.getElementById('fieldsFixo').style.display = 'none';
-    document.getElementById('fieldsVariavel').style.display = 'none';
-    expenseTipoAtual = 'cartao';
+    expenseTipoAtual = 'compra';
     openModal('modalExpense');
   });
   document.querySelectorAll('.type-toggle button[data-tipo]').forEach(btn=>{
@@ -1295,13 +1295,14 @@ function initControls(){
       document.querySelectorAll('.type-toggle button[data-tipo]').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active');
       const tipo = btn.dataset.tipo;
-      document.getElementById('fieldsCartao').style.display = tipo==='cartao' ? 'block' : 'none';
+      document.getElementById('fieldsCompra').style.display = tipo==='compra' ? 'block' : 'none';
       document.getElementById('fieldsFixo').style.display = tipo==='fixo' ? 'block' : 'none';
-      document.getElementById('fieldsVariavel').style.display = tipo==='variavel' ? 'block' : 'none';
       expenseTipoAtual = tipo;
     });
   });
   document.getElementById('expenseForm').addEventListener('submit', onExpenseSubmit);
+
+  document.getElementById('expFormaPagamento').addEventListener('change', atualizarCamposFormaPagamento);
 
   document.querySelectorAll('#pagamentoToggle button[data-pagamento]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
@@ -1325,35 +1326,30 @@ function initControls(){
   document.getElementById('addFixoBtn').addEventListener('click', ()=>{
     document.getElementById('expenseConfigWarning').style.display = isConfigured() ? 'none' : 'block';
     populateCategorySelect();
-    resetPagamentoToggle();
+    resetFormaPagamento();
     editContext = null;
     document.getElementById('expenseModalTitle').textContent = 'Adicionar gasto';
     document.getElementById('expenseSubmit').textContent = 'Salvar gasto';
     document.querySelectorAll('.type-toggle button[data-tipo]').forEach(b=>b.classList.toggle('active', b.dataset.tipo==='fixo'));
-    document.getElementById('fieldsCartao').style.display = 'none';
+    document.getElementById('fieldsCompra').style.display = 'none';
     document.getElementById('fieldsFixo').style.display = 'block';
-    document.getElementById('fieldsVariavel').style.display = 'none';
     expenseTipoAtual = 'fixo';
     openModal('modalExpense');
   });
   document.getElementById('fixoForm').addEventListener('submit', onFixoSubmit);
   document.getElementById('fixoExcluir').addEventListener('click', onFixoExcluir);
+}
 
-  /* --- gastos variáveis --- */
-  document.getElementById('addVariavelBtn').addEventListener('click', ()=>{
-    document.getElementById('expenseConfigWarning').style.display = isConfigured() ? 'none' : 'block';
-    populateCategorySelect();
-    resetPagamentoToggle();
-    editContext = null;
-    document.getElementById('expenseModalTitle').textContent = 'Adicionar gasto';
-    document.getElementById('expenseSubmit').textContent = 'Salvar gasto';
-    document.querySelectorAll('.type-toggle button[data-tipo]').forEach(b=>b.classList.toggle('active', b.dataset.tipo==='variavel'));
-    document.getElementById('fieldsCartao').style.display = 'none';
-    document.getElementById('fieldsFixo').style.display = 'none';
-    document.getElementById('fieldsVariavel').style.display = 'block';
-    expenseTipoAtual = 'variavel';
-    openModal('modalExpense');
-  });
+function atualizarCamposFormaPagamento(){
+  const credito = document.getElementById('expFormaPagamento').value === 'Crédito';
+  document.getElementById('camposCredito').style.display = credito ? 'block' : 'none';
+  document.getElementById('camposQuem').style.display = credito ? 'none' : 'block';
+  if(!credito){
+    document.getElementById('labelValorCompra').textContent = 'Valor da compra';
+  } else {
+    const parcelado = formaPagamentoAtual === 'parcelado';
+    document.getElementById('labelValorCompra').textContent = parcelado ? 'Valor da parcela' : 'Valor da compra';
+  }
 }
 
 let fixoAtual = null;
@@ -1475,12 +1471,14 @@ function abrirEdicaoCartao(cartao, idx){
   document.getElementById('expenseModalTitle').textContent = 'Editar lançamento';
   document.getElementById('expenseSubmit').textContent = 'Salvar alterações';
 
-  document.querySelectorAll('.type-toggle button[data-tipo]').forEach(b=>b.classList.toggle('active', b.dataset.tipo==='cartao'));
-  document.getElementById('fieldsCartao').style.display = 'block';
+  document.querySelectorAll('.type-toggle button[data-tipo]').forEach(b=>b.classList.toggle('active', b.dataset.tipo==='compra'));
+  document.getElementById('fieldsCompra').style.display = 'block';
   document.getElementById('fieldsFixo').style.display = 'none';
-  document.getElementById('fieldsVariavel').style.display = 'none';
-  expenseTipoAtual = 'cartao';
+  expenseTipoAtual = 'compra';
 
+  document.getElementById('expFormaPagamento').value = 'Crédito';
+  document.getElementById('camposCredito').style.display = 'block';
+  document.getElementById('camposQuem').style.display = 'none';
   document.getElementById('expCartao').value = cartao;
   document.getElementById('expData').value = data || new Date().toISOString().slice(0,10);
   document.getElementById('expEstabelecimento').value = estabelecimento;
@@ -1508,30 +1506,36 @@ function abrirEdicaoVariavel(idx){
   document.getElementById('expenseModalTitle').textContent = 'Editar lançamento';
   document.getElementById('expenseSubmit').textContent = 'Salvar alterações';
 
-  document.querySelectorAll('.type-toggle button[data-tipo]').forEach(b=>b.classList.toggle('active', b.dataset.tipo==='variavel'));
-  document.getElementById('fieldsCartao').style.display = 'none';
+  document.querySelectorAll('.type-toggle button[data-tipo]').forEach(b=>b.classList.toggle('active', b.dataset.tipo==='compra'));
+  document.getElementById('fieldsCompra').style.display = 'block';
   document.getElementById('fieldsFixo').style.display = 'none';
-  document.getElementById('fieldsVariavel').style.display = 'block';
-  expenseTipoAtual = 'variavel';
+  expenseTipoAtual = 'compra';
 
-  document.getElementById('expDataVar').value = item.data || new Date().toISOString().slice(0,10);
-  document.getElementById('expDescricaoVar').value = item.descricao;
-  document.getElementById('expCategoriaVar').value = item.categoria;
+  const forma = (item.formaPagamento && item.formaPagamento!=='Cartão de crédito') ? item.formaPagamento : 'Dinheiro';
+  document.getElementById('expFormaPagamento').value = forma;
+  document.getElementById('camposCredito').style.display = 'none';
+  document.getElementById('camposQuem').style.display = 'block';
+  document.getElementById('labelValorCompra').textContent = 'Valor da compra';
+
+  document.getElementById('expData').value = item.data || new Date().toISOString().slice(0,10);
+  document.getElementById('expEstabelecimento').value = item.descricao;
+  document.getElementById('expCategoriaCartao').value = item.categoria;
   document.getElementById('expResponsavelVar').value = item.responsavel;
-  document.getElementById('expFormaPagamentoVar').value = item.formaPagamento || 'Pix/Débito/Dinheiro';
-  document.getElementById('expValorVar').value = item.valor;
+  document.getElementById('expValorParcela').value = item.valor;
 
   openModal('modalExpense');
 }
 let formaPagamentoAtual = 'avista';
 
-function resetPagamentoToggle(){
+function resetFormaPagamento(){
+  document.getElementById('expFormaPagamento').value = 'Dinheiro';
   formaPagamentoAtual = 'avista';
   document.querySelectorAll('#pagamentoToggle button[data-pagamento]').forEach(b=>b.classList.toggle('active', b.dataset.pagamento==='avista'));
   document.getElementById('camposParcelado').style.display = 'none';
+  document.getElementById('camposCredito').style.display = 'none';
+  document.getElementById('camposQuem').style.display = 'block';
   document.getElementById('labelValorCompra').textContent = 'Valor da compra';
   document.getElementById('expData').value = new Date().toISOString().slice(0,10);
-  document.getElementById('expDataVar').value = new Date().toISOString().slice(0,10);
 }
 function openModal(id){ document.getElementById(id).classList.add('open'); }
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
@@ -1539,48 +1543,51 @@ function closeModal(id){ document.getElementById(id).classList.remove('open'); }
 function populateCategorySelect(){
   const cats = Object.keys(CATEGORY_COLORS);
   document.getElementById('expCategoriaCartao').innerHTML = cats.map(c=>`<option>${c}</option>`).join('');
-  document.getElementById('expCategoriaVar').innerHTML = cats.map(c=>`<option>${c}</option>`).join('');
 }
 
 async function onExpenseSubmit(e){
   e.preventDefault();
   const btn = document.getElementById('expenseSubmit');
   let payload;
-  if(expenseTipoAtual==='cartao'){
-    const estabelecimento = document.getElementById('expEstabelecimento').value.trim();
+  let destinoCompra = null; // 'cartao' | 'variavel', só usado quando expenseTipoAtual==='compra'
+
+  if(expenseTipoAtual==='compra'){
+    const descricao = document.getElementById('expEstabelecimento').value.trim();
     const valorParcela = parseFloat(document.getElementById('expValorParcela').value);
-    if(!estabelecimento || !valorParcela){ showToast('Preencha estabelecimento e valor.', true); return; }
-    const isParcelado = formaPagamentoAtual === 'parcelado';
-    const totalParcelas = isParcelado ? (parseInt(document.getElementById('expTotalParcelas').value,10) || 2) : 1;
-    const parcelasPagas = isParcelado ? (parseInt(document.getElementById('expParcelasPagas').value,10) || 0) : 0;
+    const categoria = document.getElementById('expCategoriaCartao').value;
     const data = document.getElementById('expData').value || new Date().toISOString().slice(0,10);
-    payload = {
-      action:'addExpense', tipo:'cartao',
-      cartao: document.getElementById('expCartao').value,
-      estabelecimento, categoria: document.getElementById('expCategoriaCartao').value,
-      valorParcela, totalParcelas, parcelasPagas, data
-    };
-  } else if(expenseTipoAtual==='fixo'){
+    const formaPagamento = document.getElementById('expFormaPagamento').value;
+    if(!descricao || !valorParcela){ showToast('Preencha descrição e valor.', true); return; }
+
+    if(formaPagamento === 'Crédito'){
+      destinoCompra = 'cartao';
+      const isParcelado = formaPagamentoAtual === 'parcelado';
+      const totalParcelas = isParcelado ? (parseInt(document.getElementById('expTotalParcelas').value,10) || 2) : 1;
+      const parcelasPagas = isParcelado ? (parseInt(document.getElementById('expParcelasPagas').value,10) || 0) : 0;
+      payload = {
+        action:'addExpense', tipo:'cartao',
+        cartao: document.getElementById('expCartao').value,
+        estabelecimento: descricao, categoria,
+        valorParcela, totalParcelas, parcelasPagas, data
+      };
+    } else {
+      destinoCompra = 'variavel';
+      payload = {
+        action:'addGastoVariavel', data, descricao, categoria,
+        responsavel: document.getElementById('expResponsavelVar').value,
+        formaPagamento, valor: valorParcela
+      };
+    }
+  } else {
     const despesa = document.getElementById('expDespesa').value.trim();
     const valor = parseFloat(document.getElementById('expValorFixo').value);
     if(!despesa || !valor){ showToast('Preencha despesa e valor.', true); return; }
     payload = { action:'addExpense', tipo:'fixo', despesa, valor };
-  } else {
-    const descricao = document.getElementById('expDescricaoVar').value.trim();
-    const valor = parseFloat(document.getElementById('expValorVar').value);
-    if(!descricao || !valor){ showToast('Preencha descrição e valor.', true); return; }
-    payload = {
-      action:'addGastoVariavel',
-      data: document.getElementById('expDataVar').value || new Date().toISOString().slice(0,10),
-      descricao, categoria: document.getElementById('expCategoriaVar').value,
-      responsavel: document.getElementById('expResponsavelVar').value,
-      formaPagamento: document.getElementById('expFormaPagamentoVar').value, valor
-    };
   }
 
   // aplica localmente na hora (otimista), independente de estar configurado
   const emEdicao = editContext;
-  if(expenseTipoAtual==='cartao'){
+  if(destinoCompra==='cartao'){
     const restantes = Math.max(0, payload.totalParcelas - payload.parcelasPagas);
     const alvo = payload.cartao==='Fred' ? DATA.cartaoFred : DATA.cartaoJanyne;
     const valorAberto = restantes*payload.valorParcela;
@@ -1590,11 +1597,11 @@ async function onExpenseSubmit(e){
       valorParcela: payload.valorParcela, valorAberto, parcelasRestantes: restantes, categoria: payload.categoria, totalParcelas: payload.totalParcelas
     });
     TX = buildTransactions();
-  } else if(expenseTipoAtual==='fixo'){
+  } else if(destinoCompra==='variavel'){
+    DATA.gastosVariaveis.push({data:payload.data, descricao:payload.descricao, categoria:payload.categoria, responsavel:payload.responsavel, formaPagamento:payload.formaPagamento, valor:payload.valor});
+  } else {
     DATA.gastosFixos.push({despesa:payload.despesa, valor:payload.valor});
     DATA.gastosFixosTotal += payload.valor;
-  } else {
-    DATA.gastosVariaveis.push({data:payload.data, descricao:payload.descricao, categoria:payload.categoria, responsavel:payload.responsavel, formaPagamento:payload.formaPagamento, valor:payload.valor});
   }
 
   // se estava editando um lançamento, remove a versão original agora que a nova já foi criada
@@ -1611,7 +1618,7 @@ async function onExpenseSubmit(e){
 
   if(!isConfigured()){
     showToast(emEdicao ? 'Alterado nesta tela. Configure ⚙ para salvar na planilha.' : 'Gasto adicionado nesta tela. Configure ⚙ para salvar na planilha.');
-    closeModal('modalExpense'); e.target.reset(); resetPagamentoToggle(); fullRender();
+    closeModal('modalExpense'); e.target.reset(); resetFormaPagamento(); fullRender();
     return;
   }
 
@@ -1628,8 +1635,8 @@ async function onExpenseSubmit(e){
       }catch(delErr){ showToast('Novo lançamento salvo, mas não consegui remover o original antigo: ' + delErr.message, true); }
     }
     showToast(emEdicao ? 'Lançamento atualizado ✓' : 'Gasto salvo na planilha ✓');
-    closeModal('modalExpense'); e.target.reset(); resetPagamentoToggle();
-    if(expenseTipoAtual==='variavel') fetchGastosVariaveis();
+    closeModal('modalExpense'); e.target.reset(); resetFormaPagamento();
+    if(destinoCompra==='variavel') fetchGastosVariaveis();
     else scheduleLiveResync();
   }catch(err){
     showToast('Salvo aqui, mas falhou ao gravar na planilha: ' + err.message, true);
