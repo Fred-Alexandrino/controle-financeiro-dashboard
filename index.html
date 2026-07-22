@@ -680,8 +680,17 @@ async function apiPost(payload){
 async function apiGet(){
   const cfg = getConfig();
   if(!cfg.url) return null;
-  const res = await fetch(cfg.url + (cfg.url.includes('?') ? '&' : '?') + 'action=getAll');
-  return await res.json();
+  const controller = new AbortController();
+  const timeoutId = setTimeout(()=>controller.abort(), 15000);
+  try{
+    const res = await fetch(cfg.url + (cfg.url.includes('?') ? '&' : '?') + 'action=getAll', { signal: controller.signal });
+    clearTimeout(timeoutId);
+    return await res.json();
+  }catch(err){
+    clearTimeout(timeoutId);
+    if(err.name==='AbortError') throw new Error('Tempo esgotado ao buscar dados da planilha.');
+    throw err;
+  }
 }
 
 async function apiGetComRetry(tentativas=3, delayMs=1800){
