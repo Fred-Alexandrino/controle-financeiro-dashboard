@@ -862,6 +862,18 @@ function chavePendente(estab, data, valorParcela){
   return `${(estab||'').trim().toLowerCase()}|${data||''}|${Number(valorParcela).toFixed(2)}`;
 }
 
+function deduplicarCartao(arr){
+  const vistos = new Set();
+  const out = [];
+  for(const r of arr){
+    const chave = `${(r[0]||'').trim().toLowerCase()}|${r[5]||''}|${Number(r[2]).toFixed(2)}`;
+    if(vistos.has(chave)) continue;
+    vistos.add(chave);
+    out.push(r);
+  }
+  return out;
+}
+
 function mesclarPendentes(){
   pendingExpenses = pendingExpenses.filter(p=>{
     const alvo = p.cartao==='Fred' ? DATA.cartaoFred : DATA.cartaoJanyne;
@@ -870,6 +882,8 @@ function mesclarPendentes(){
     alvo.push([p.estabelecimento, p.parcelasRestantes, p.valorParcela, p.valorAberto, p.categoria, p.data, p.totalParcelas]);
     return true; // ainda nao confirmado, mantem pendente
   });
+  DATA.cartaoFred = deduplicarCartao(DATA.cartaoFred);
+  DATA.cartaoJanyne = deduplicarCartao(DATA.cartaoJanyne);
   salvarPendentes(PENDING_KEY, pendingExpenses);
   TX = buildTransactions();
 }
@@ -879,6 +893,13 @@ function mesclarPendentesVariaveis(){
     const jaExiste = DATA.gastosVariaveis.some(r => chavePendente(r.descricao, r.data, r.valor) === chavePendente(p.descricao, p.data, p.valor));
     if(jaExiste) return false;
     DATA.gastosVariaveis.push(p);
+    return true;
+  });
+  const vistos = new Set();
+  DATA.gastosVariaveis = DATA.gastosVariaveis.filter(r=>{
+    const chave = chavePendente(r.descricao, r.data, r.valor);
+    if(vistos.has(chave)) return false;
+    vistos.add(chave);
     return true;
   });
   salvarPendentes(PENDING_VAR_KEY, pendingVariaveis);
