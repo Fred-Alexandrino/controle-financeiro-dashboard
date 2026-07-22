@@ -990,13 +990,21 @@ function kpiCard(label, value, {neg=false, sub=''}={}){
   return `<div class="kpi-card ${neg?'neg':''}"><div class="label">${label}</div><div class="value">${value}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
 }
 
+function totalPagarTodosCartoes(){
+  return TX.reduce((s,t)=>s+t.valorParcela+t.valorAberto, 0);
+}
+function emAbertoTodosCartoes(){
+  return TX.reduce((s,t)=>s+t.valorAberto, 0);
+}
+
 function renderKpiGeral(){
   const k = DATA.kpisGerais;
-  const totalEmAberto = DATA.cardsSummary.find(c=>c.nome==='Total').emAberto;
+  const totalPagar = totalPagarTodosCartoes();
+  const totalEmAberto = emAbertoTodosCartoes();
   document.getElementById('kpiGeral').innerHTML = [
     kpiCard('Renda total', fmt.format(DATA.renda.total), {sub:`Janyne ${fmt0.format(DATA.renda.janyne)} + Fred ${fmt0.format(DATA.renda.fred)}`}),
     kpiCard('Gasto fixo mensal', fmt.format(k.gastoFixoMensal)),
-    kpiCard('Total a pagar (cartões)', fmt.format(k.totalPagarCartoes)),
+    kpiCard('Total a pagar (cartões)', fmt.format(totalPagar)),
     kpiCard('Em aberto (cartões)', fmt.format(totalEmAberto)),
     kpiCard('Desembolso total (13 meses)', fmt.format(k.desembolsoTotal))
   ].join('');
