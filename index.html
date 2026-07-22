@@ -142,6 +142,9 @@ body{
 .kpi-card .value{font-family:'IBM Plex Mono',monospace; font-size:23px; font-weight:700; color:var(--cover);}
 .kpi-card.neg .value{color:var(--rust);}
 .kpi-card .sub{font-size:11px; color:var(--ink-soft); margin-top:4px;}
+.kpi-clicavel{cursor:pointer; transition:box-shadow .15s ease, transform .1s ease;}
+.kpi-clicavel:hover{box-shadow:0 4px 14px rgba(30,58,47,.15);}
+.kpi-clicavel:active{transform:scale(.98);}
 
 /* PANELS */
 .panel{
@@ -349,8 +352,32 @@ footer a{color:var(--cover);}
     </div>
   </section>
 
+  <section class="dashboard-section" data-id="comprasCartao">
+    <div class="section-title"><span class="drag-handle" title="Arraste para reordenar">⠿</span><span class="n">07</span>Compras no Cartão <span class="live-tag" id="tagCompras"></span><span class="chevron">⌄</span></div>
+    <div class="panel">
+      <div class="helper-text" style="margin-bottom:10px;">Compras à vista (pagamento único) nos cartões — não entram no parcelamento.</div>
+      <div class="table-controls">
+        <span style="font-size:12px; color:var(--ink-soft);" id="tableCountCompras"></span>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th data-kc="data">Data</th>
+              <th data-kc="valorParcela">Valor</th>
+              <th data-kc="estabelecimento">Estabelecimento</th>
+              <th data-kc="categoria">Categoria</th>
+              <th data-kc="cartao">Cartão</th>
+            </tr>
+          </thead>
+          <tbody id="txComprasBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
   <section class="dashboard-section" data-id="cartoes">
-    <div class="section-title"><span class="drag-handle" title="Arraste para reordenar">⠿</span><span class="n">07</span>Gastos Parcelados <span class="live-tag" id="tagCartoes"></span><span class="chevron">⌄</span></div>
+    <div class="section-title"><span class="drag-handle" title="Arraste para reordenar">⠿</span><span class="n">08</span>Parcelas <span class="live-tag" id="tagCartoes"></span><span class="chevron">⌄</span></div>
     <div class="panel">
       <div class="table-controls">
         <span style="font-size:12px; color:var(--ink-soft);" id="tableCount"></span>
@@ -374,8 +401,9 @@ footer a{color:var(--cover);}
   </section>
 
   <section class="dashboard-section" data-id="variaveis">
-    <div class="section-title"><span class="drag-handle" title="Arraste para reordenar">⠿</span><span class="n">08</span>Gastos Variáveis <span class="live-tag" id="tagVariaveis"></span><span class="chevron">⌄</span></div>
+    <div class="section-title"><span class="drag-handle" title="Arraste para reordenar">⠿</span><span class="n">09</span>Gastos Recorrentes <span class="live-tag" id="tagVariaveis"></span><span class="chevron">⌄</span></div>
     <div class="panel">
+      <div class="helper-text" style="margin-bottom:10px;">Despesas que se repetem todo mês, mas com valor variável (mercado, farmácia, combustível avulso...).</div>
       <div class="table-controls">
         <span style="font-size:12px; color:var(--ink-soft);" id="tableCountVar"></span>
         <button type="button" class="btn-primary" id="addVariavelBtn" style="width:auto; padding:8px 16px; background:transparent; color:var(--cover); border:1px dashed var(--line);">+ Adicionar</button>
@@ -394,6 +422,7 @@ footer a{color:var(--cover);}
           <tbody id="txVarBody"></tbody>
         </table>
       </div>
+
     </div>
   </section>
 
@@ -779,8 +808,9 @@ let state = { mes: DATA.projecaoMensal[0].mes, cardFiltro:'todos', search:'', so
 /* ================= TRANSACTIONS (flatten) ================= */
 function buildTransactions(){
   const rows = [];
-  DATA.cartaoFred.forEach(r=>rows.push({cartao:'Fred', estabelecimento:r[0], parcelasRestantes:r[1], valorParcela:r[2], valorAberto:r[3], categoria:r[4], data:r[5]||'2026-07-01'}));
-  DATA.cartaoJanyne.forEach(r=>rows.push({cartao:'Janyne', estabelecimento:r[0], parcelasRestantes:r[1], valorParcela:r[2], valorAberto:r[3], categoria:r[4], data:r[5]||'2026-07-01'}));
+  DATA.cartaoFred.forEach(r=>rows.push({cartao:'Fred', estabelecimento:r[0], parcelasRestantes:r[1], valorParcela:r[2], valorAberto:r[3], categoria:r[4], data:r[5]||'2026-07-01', totalParcelas:r[6]||null}));
+  DATA.cartaoJanyne.forEach(r=>rows.push({cartao:'Janyne', estabelecimento:r[0], parcelasRestantes:r[1], valorParcela:r[2], valorAberto:r[3], categoria:r[4], data:r[5]||'2026-07-01', totalParcelas:r[6]||null}));
+  rows.forEach(r=>{ r.tipoCompra = r.totalParcelas===1 ? 'pontual' : 'parcelada'; });
   return rows;
 }
 let TX = buildTransactions();
@@ -795,7 +825,7 @@ function mesclarPendentes(){
     const alvo = p.cartao==='Fred' ? DATA.cartaoFred : DATA.cartaoJanyne;
     const jaExiste = alvo.some(r => chavePendente(r[0], r[5], r[2]) === chavePendente(p.estabelecimento, p.data, p.valorParcela));
     if(jaExiste) return false; // confirmado na planilha, pode descartar a versão provisória
-    alvo.push([p.estabelecimento, p.parcelasRestantes, p.valorParcela, p.valorAberto, p.categoria, p.data]);
+    alvo.push([p.estabelecimento, p.parcelasRestantes, p.valorParcela, p.valorAberto, p.categoria, p.data, p.totalParcelas]);
     return true; // ainda nao confirmado, mantem pendente
   });
   TX = buildTransactions();
@@ -864,11 +894,30 @@ function renderKpiGeral(){
   ].join('');
 }
 
+const MES_LABEL_TO_YYYYMM = {
+  'ago.-26':'2026-08','set.-26':'2026-09','out.-26':'2026-10','nov.-26':'2026-11','dez.-26':'2026-12',
+  'jan.-27':'2027-01','fev.-27':'2027-02','mar.-27':'2027-03','abr.-27':'2027-04','mai.-27':'2027-05',
+  'jun.-27':'2027-06','jul.-27':'2027-07','ago.-27':'2027-08'
+};
+function dataNoMes(dataStr, mesLabel){
+  if(!dataStr) return false;
+  const alvo = MES_LABEL_TO_YYYYMM[mesLabel];
+  return alvo && String(dataStr).slice(0,7) === alvo;
+}
+function extrasPessoaMes(pessoa, mesLabel){
+  const compras = TX.filter(t=>t.tipoCompra==='pontual' && t.cartao===pessoa && dataNoMes(t.data, mesLabel))
+    .reduce((s,t)=>s+t.valorParcela, 0);
+  const recorrentes = DATA.gastosVariaveis.filter(r=>r.responsavel===pessoa && dataNoMes(r.data, mesLabel))
+    .reduce((s,r)=>s+r.valor, 0);
+  return compras + recorrentes;
+}
+
 function kpiCardEdit(label, value, cartao, mes, ajustado){
-  return `<div class="kpi-card ${ajustado?'':''}" style="${ajustado?'border-left-color:#5B7B93':''}">
+  const ativo = state.cardFiltro === cartao;
+  return `<div class="kpi-card kpi-clicavel ${ajustado?'':''}" style="${ajustado?'border-left-color:#5B7B93;':''}${ativo?'background:var(--green-bg); border-left-color:var(--cover);':''}" data-filtro-pessoa="${cartao}">
     <div class="label" style="display:flex; justify-content:space-between; align-items:center;">
-      <span>${label}${ajustado?' <span style="color:#5B7B93;">·ajustado</span>':''}</span>
-      <button type="button" class="icon-btn" style="width:22px;height:22px;border-color:var(--line);color:var(--ink-soft);" data-edit-cartao="${cartao}" data-edit-mes="${mes}" title="Ajustar valor real (banco)">✎</button>
+      <span>${label}${ajustado?' <span style="color:#5B7B93;">·ajustado</span>':''}${ativo?' <span style="color:var(--cover);">·filtrando</span>':''}</span>
+      <button type="button" class="icon-btn" style="width:22px;height:22px;border-color:var(--line);color:var(--ink-soft);" data-edit-cartao="${cartao}" data-edit-mes="${mes}" title="Ajustar valor real do cartão (banco)">✎</button>
     </div>
     <div class="value">${value}</div>
   </div>`;
@@ -877,17 +926,29 @@ function kpiCardEdit(label, value, cartao, mes, ajustado){
 function renderKpiMes(){
   const row = DATA.projecaoMensal.find(r=>r.mes===state.mes) || DATA.projecaoMensal[0];
   const eff = rowEfetiva(row);
-  const sobra = DATA.renda.total - eff.total;
+  const extrasFred = extrasPessoaMes('Fred', state.mes);
+  const extrasJanyne = extrasPessoaMes('Janyne', state.mes);
+  const gastosFred = eff.fred + extrasFred;
+  const gastosJanyne = eff.janyne + extrasJanyne;
+  const sobra = DATA.renda.total - (eff.fixos + gastosFred + gastosJanyne);
   document.getElementById('mesLabelTitle').textContent = state.mes;
   document.getElementById('kpiMes').innerHTML = [
     kpiCard('Gastos fixos', fmt.format(eff.fixos)),
-    kpiCardEdit('Fatura Fred', fmt.format(eff.fred), 'Fred', state.mes, eff.fredAjustado),
-    kpiCardEdit('Fatura Janyne', fmt.format(eff.janyne), 'Janyne', state.mes, eff.janyneAjustado),
-    kpiCard('Total comprometido', fmt.format(eff.total)),
+    kpiCardEdit('Gastos Fred', fmt.format(gastosFred), 'Fred', state.mes, eff.fredAjustado),
+    kpiCardEdit('Gastos Janyne', fmt.format(gastosJanyne), 'Janyne', state.mes, eff.janyneAjustado),
+    kpiCard('Total comprometido', fmt.format(eff.fixos + gastosFred + gastosJanyne)),
     kpiCard(sobra>=0 ? 'Sobra do mês' : 'Falta no mês', fmt.format(Math.abs(sobra)), {neg: sobra<0})
   ].join('');
   document.querySelectorAll('#kpiMes [data-edit-cartao]').forEach(btn=>{
-    btn.addEventListener('click', ()=> openAjusteModal(btn.dataset.editCartao, btn.dataset.editMes));
+    btn.addEventListener('click', (e)=>{ e.stopPropagation(); openAjusteModal(btn.dataset.editCartao, btn.dataset.editMes); });
+  });
+  document.querySelectorAll('#kpiMes .kpi-clicavel').forEach(card=>{
+    card.addEventListener('click', ()=>{
+      const pessoa = card.dataset.filtroPessoa;
+      state.cardFiltro = state.cardFiltro===pessoa ? 'todos' : pessoa;
+      document.querySelectorAll('#cardChips .chip').forEach(c=>c.classList.toggle('active', c.dataset.card===state.cardFiltro));
+      renderTable(); renderTableCompras(); renderGastosVariaveis(); renderChartCategoria(); renderKpiMes();
+    });
   });
 }
 
@@ -952,7 +1013,7 @@ function formatDataBR(iso){
 }
 
 function renderTable(){
-  let rows = TX;
+  let rows = TX.filter(t=>t.tipoCompra==='parcelada');
   if(state.cardFiltro!=='todos') rows = rows.filter(t=>t.cartao===state.cardFiltro);
   if(state.search) rows = rows.filter(t=>t.estabelecimento.toLowerCase().includes(state.search.toLowerCase()));
   rows = [...rows].sort((a,b)=>{
@@ -975,8 +1036,31 @@ function renderTable(){
     </tr>`).join('');
 }
 
+function renderTableCompras(){
+  let rows = TX.filter(t=>t.tipoCompra==='pontual');
+  if(state.cardFiltro!=='todos') rows = rows.filter(t=>t.cartao===state.cardFiltro);
+  if(state.search) rows = rows.filter(t=>t.estabelecimento.toLowerCase().includes(state.search.toLowerCase()));
+  rows = [...rows].sort((a,b)=>{
+    let va=a[state.sortKeyCompras||'data'], vb=b[state.sortKeyCompras||'data'];
+    if(typeof va==='string'){ va=(va||'').toLowerCase(); vb=(vb||'').toLowerCase(); }
+    if(va<vb) return (state.sortDirCompras||'desc')==='asc'?-1:1;
+    if(va>vb) return (state.sortDirCompras||'desc')==='asc'?1:-1;
+    return 0;
+  });
+  document.getElementById('tableCountCompras').textContent = `${rows.length} lançamento(s)`;
+  document.getElementById('txComprasBody').innerHTML = rows.map(t=>`
+    <tr>
+      <td class="mono">${formatDataBR(t.data)}</td>
+      <td class="amount">${fmt.format(t.valorParcela)}</td>
+      <td>${t.estabelecimento}</td>
+      <td><span class="cat-chip" style="background:${catColor(t.categoria)}">${t.categoria}</span></td>
+      <td>${t.cartao}</td>
+    </tr>`).join('');
+}
+
 function renderGastosVariaveis(){
   let rows = [...DATA.gastosVariaveis];
+  if(state.cardFiltro!=='todos') rows = rows.filter(r=>r.responsavel===state.cardFiltro);
   rows.sort((a,b)=>{
     let va=a[state.sortKeyVar], vb=b[state.sortKeyVar];
     if(state.sortKeyVar==='data'){ va = va||''; vb = vb||''; }
@@ -997,7 +1081,7 @@ function renderGastosVariaveis(){
 }
 
 function renderLiveTags(){
-  const map = {tagDashboard:'dashboard', tagPainel:'painel', tagFixos:'fixos', tagCartoes:'cartoes', tagVariaveis:'variaveis'};
+  const map = {tagDashboard:'dashboard', tagPainel:'painel', tagFixos:'fixos', tagCartoes:'cartoes', tagCompras:'cartoes', tagVariaveis:'variaveis'};
   Object.entries(map).forEach(([elId,key])=>{
     const el = document.getElementById(elId);
     const s = liveStatus[key];
@@ -1011,7 +1095,7 @@ function renderLiveTags(){
 }
 
 function fullRender(){
-  renderKpiGeral(); renderKpiMes(); renderGoals(); renderReco(); renderFixos(); renderTable(); renderGastosVariaveis();
+  renderKpiGeral(); renderKpiMes(); renderGoals(); renderReco(); renderFixos(); renderTable(); renderTableCompras(); renderGastosVariaveis();
   renderChartProjecao(); renderChartCategoria(); renderLiveTags();
 }
 
@@ -1027,7 +1111,7 @@ function initControls(){
       document.querySelectorAll('#cardChips .chip').forEach(c=>c.classList.remove('active'));
       chip.classList.add('active');
       state.cardFiltro = chip.dataset.card;
-      renderTable(); renderChartCategoria();
+      renderTable(); renderTableCompras(); renderGastosVariaveis(); renderChartCategoria(); renderKpiMes();
     });
   });
 
@@ -1048,6 +1132,15 @@ function initControls(){
       if(state.sortKeyVar===k) state.sortDirVar = state.sortDirVar==='asc'?'desc':'asc';
       else { state.sortKeyVar=k; state.sortDirVar='desc'; }
       renderGastosVariaveis();
+    });
+  });
+
+  document.querySelectorAll('thead th[data-kc]').forEach(th=>{
+    th.addEventListener('click', ()=>{
+      const k = th.dataset.kc;
+      if(state.sortKeyCompras===k) state.sortDirCompras = state.sortDirCompras==='asc'?'desc':'asc';
+      else { state.sortKeyCompras=k; state.sortDirCompras='desc'; }
+      renderTableCompras();
     });
   });
 
@@ -1307,10 +1400,10 @@ async function onExpenseSubmit(e){
     const restantes = Math.max(0, payload.totalParcelas - payload.parcelasPagas);
     const alvo = payload.cartao==='Fred' ? DATA.cartaoFred : DATA.cartaoJanyne;
     const valorAberto = restantes*payload.valorParcela;
-    alvo.push([payload.estabelecimento, restantes, payload.valorParcela, valorAberto, payload.categoria, payload.data]);
+    alvo.push([payload.estabelecimento, restantes, payload.valorParcela, valorAberto, payload.categoria, payload.data, payload.totalParcelas]);
     pendingExpenses.push({
       cartao: payload.cartao, estabelecimento: payload.estabelecimento, data: payload.data,
-      valorParcela: payload.valorParcela, valorAberto, parcelasRestantes: restantes, categoria: payload.categoria
+      valorParcela: payload.valorParcela, valorAberto, parcelasRestantes: restantes, categoria: payload.categoria, totalParcelas: payload.totalParcelas
     });
     TX = buildTransactions();
   } else if(expenseTipoAtual==='fixo'){
@@ -1561,12 +1654,13 @@ async function tryFetchCartao(sheetName){
     if(!estab || estab.trim()==='') continue;
     if(/^R\$/.test(estab) || estab.toLowerCase()==='total') continue;
     const parcRest = texts[estabCol+2];
+    const totalParc = texts[estabCol+3];
     const valorParcela = texts[estabCol+4];
     const valorAberto = texts[estabCol+5];
     const categoria = texts[estabCol+6] || 'Outros';
     const data = texts[estabCol+7] || null;
     if(!/^-?[\d.,]+$/.test(String(valorParcela||''))) continue;
-    out.push([estab, parseInt(parcRest,10)||0, n(valorParcela), n(valorAberto), categoria, data]);
+    out.push([estab, parseInt(parcRest,10)||0, n(valorParcela), n(valorAberto), categoria, data, parseInt(totalParc,10)||null]);
   }
   if(!out.length) throw new Error('nenhuma transacao encontrada');
   if(out.reduce((s,r)=>s+r[3],0) < 0) throw new Error('valores invalidos — mantendo dados anteriores');
