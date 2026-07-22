@@ -1981,56 +1981,91 @@ function scheduleLiveResync(){
   setTimeout(()=>{ fetchLive(); fetchReservaLedger(); }, 2200);
 }
 
-async function tryFetchCartoesViaAppsScript(){
+async function tryFetchTudoViaAppsScript(){
   const json = await apiGet();
   if(!json || !json.ok) throw new Error('resposta invalida do Apps Script');
-  const fred = json.cartaoFred || [];
-  const janyne = json.cartaoJanyne || [];
-  if(!fred.length && !janyne.length) throw new Error('nenhuma transacao encontrada via Apps Script');
-  return { fred, janyne };
+  return json;
 }
 
 async function fetchLive(){
   document.getElementById('liveText').textContent = 'atualizando…';
 
-  const cartoesPromise = isConfigured()
-    ? tryFetchCartoesViaAppsScript()
-    : Promise.all([tryFetchCartao('cartão fred'), tryFetchCartao('cartão janyne')]).then(([f,j])=>({fred:f, janyne:j}));
+  if(isConfigured()){
+    const r = await Promise.allSettled([tryFetchTudoViaAppsScript()]);
+    const blob = r[0];
+    if(blob.status==='fulfilled'){
+      const json = blob.value;
+      if(json.dashboard && json.dashboard.kpisGerais){
+        DATA.kpisGerais = json.dashboard.kpisGerais;
+        const total = json.dashboard.cardsSummary.find(c=>c.nome.toLowerCase()==='total');
+        DATA.cardsSummary = json.dashboard.cardsSummary.filter(c=>c.nome.toLowerCase()!=='total');
+        if(total) DATA.cardsSummary.push(total); else {
+          const f = DATA.cardsSummary.reduce((s,c)=>({fatura:s.fatura+c.fatura,totalPagar:s.totalPagar+c.totalPagar,emAberto:s.emAberto+c.emAberto}),{fatura:0,totalPagar:0,emAberto:0});
+          DATA.cardsSummary.push({nome:'Total', ...f});
+        }
+        liveStatus.dashboard='live';
+      } else liveStatus.dashboard='cached';
 
-  const results = await Promise.allSettled([
-    tryFetchDashboard(), tryFetchPainel(), tryFetchFixos(), cartoesPromise
-  ]);
-  const [dash, painel, fixos, cartoes] = results;
+      if(json.painel && json.painel.projecaoMensal && json.painel.projecaoMensal.length>=12){
+        DATA.projecaoMensal = json.painel.projecaoMensal;
+        liveStatus.painel='live';
+      } else liveStatus.painel='cached';
 
-  if(dash.status==='fulfilled'){
-    DATA.kpisGerais = dash.value.kpisGerais;
-    const total = dash.value.cardsSummary.find(c=>c.nome.toLowerCase()==='total');
-    DATA.cardsSummary = dash.value.cardsSummary.filter(c=>c.nome.toLowerCase()!=='total');
-    if(total) DATA.cardsSummary.push(total); else {
-      const f = DATA.cardsSummary.reduce((s,c)=>({fatura:s.fatura+c.fatura,totalPagar:s.totalPagar+c.totalPagar,emAberto:s.emAberto+c.emAberto}),{fatura:0,totalPagar:0,emAberto:0});
-      DATA.cardsSummary.push({nome:'Total', ...f});
+      if(json.gastosFixosLista && json.gastosFixosLista.length){
+        DATA.gastosFixos = json.gastosFixosLista;
+        const fredFat = DATA.cardsSummary.find(c=>c.nome==='Fred')?.fatura || 0;
+        const janFat = DATA.cardsSummary.find(c=>c.nome==='Janyne')?.fatura || 0;
+        DATA.gastosFixosTotal = json.gastosFixosLista.reduce((s,x)=>s+x.valor,0) + fredFat + janFat;
+        liveStatus.fixos='live';
+      } else liveStatus.fixos='cached';
+
+      if((json.cartaoFred && json.cartaoFred.length) || (json.cartaoJanyne && json.cartaoJanyne.length)){
+        DATA.cartaoFred = json.cartaoFred || [];
+        DATA.cartaoJanyne = json.cartaoJanyne || [];
+        liveStatus.cartoes='live';
+      } else liveStatus.cartoes='cached';
+    } else {
+      liveStatus.dashboard='cached'; liveStatus.painel='cached'; liveStatus.fixos='cached'; liveStatus.cartoes='cached';
     }
-    liveStatus.dashboard='live';
-  } else liveStatus.dashboard='cached';
+  } else {
+    // sem Apps Script configurado: usa gviz (menos confiavel, mas funciona sem configuracao)
+    const results = await Promise.allSettled([
+      tryFetchDashboard(), tryFetchPainel(), tryFetchFixos(),
+      Promise.all([tryFetchCartao('cartão fred'), tryFetchCartao('cartão janyne')]).then(([f,j])=>({fred:f, janyne:j}))
+    ]);
+    const [dash, painel, fixos, cartoes] = results;
 
-  if(painel.status==='fulfilled'){
-    DATA.projecaoMensal = painel.value.projecaoMensal;
-    liveStatus.painel='live';
-  } else liveStatus.painel='cached';
+    if(dash.status==='fulfilled'){
+      DATA.kpisGerais = dash.value.kpisGerais;
+      const total = dash.value.cardsSummary.find(c=>c.nome.toLowerCase()==='total');
+      DATA.cardsSummary = dash.value.cardsSummary.filter(c=>c.nome.toLowerCase()!=='total');
+      if(total) DATA.cardsSummary.push(total); else {
+        const f = DATA.cardsSummary.reduce((s,c)=>({fatura:s.fatura+c.fatura,totalPagar:s.totalPagar+c.totalPagar,emAberto:s.emAberto+c.emAberto}),{fatura:0,totalPagar:0,emAberto:0});
+        DATA.cardsSummary.push({nome:'Total', ...f});
+      }
+      liveStatus.dashboard='live';
+    } else liveStatus.dashboard='cached';
 
-  if(fixos.status==='fulfilled'){
-    DATA.gastosFixos = fixos.value;
-    const fredFat = DATA.cardsSummary.find(c=>c.nome==='Fred')?.fatura || 0;
-    const janFat = DATA.cardsSummary.find(c=>c.nome==='Janyne')?.fatura || 0;
-    DATA.gastosFixosTotal = fixos.value.reduce((s,x)=>s+x.valor,0) + fredFat + janFat;
-    liveStatus.fixos='live';
-  } else liveStatus.fixos='cached';
+    if(painel.status==='fulfilled'){
+      DATA.projecaoMensal = painel.value.projecaoMensal;
+      liveStatus.painel='live';
+    } else liveStatus.painel='cached';
 
-  if(cartoes.status==='fulfilled'){
-    DATA.cartaoFred = cartoes.value.fred;
-    DATA.cartaoJanyne = cartoes.value.janyne;
-    liveStatus.cartoes='live';
-  } else liveStatus.cartoes='cached';
+    if(fixos.status==='fulfilled'){
+      DATA.gastosFixos = fixos.value;
+      const fredFat = DATA.cardsSummary.find(c=>c.nome==='Fred')?.fatura || 0;
+      const janFat = DATA.cardsSummary.find(c=>c.nome==='Janyne')?.fatura || 0;
+      DATA.gastosFixosTotal = fixos.value.reduce((s,x)=>s+x.valor,0) + fredFat + janFat;
+      liveStatus.fixos='live';
+    } else liveStatus.fixos='cached';
+
+    if(cartoes.status==='fulfilled'){
+      DATA.cartaoFred = cartoes.value.fred;
+      DATA.cartaoJanyne = cartoes.value.janyne;
+      liveStatus.cartoes='live';
+    } else liveStatus.cartoes='cached';
+  }
+
   mesclarPendentes();
 
   if(!DATA.projecaoMensal.find(r=>r.mes===state.mes)) state.mes = DATA.projecaoMensal[0].mes;
