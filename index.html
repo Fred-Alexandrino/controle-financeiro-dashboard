@@ -653,14 +653,29 @@ function showToast(msg, isError=false){
 async function apiPost(payload){
   const cfg = getConfig();
   if(!cfg.url) throw new Error('Apps Script não configurado.');
-  const res = await fetch(cfg.url, {
-    method:'POST',
-    headers:{'Content-Type':'text/plain;charset=utf-8'}, // evita preflight CORS no Apps Script
-    body: JSON.stringify({ ...payload, secret: cfg.secret })
-  });
-  const json = await res.json();
-  if(!json.ok) throw new Error(json.error || 'erro desconhecido');
-  return json;
+  const tentativas = 2;
+  let ultimoErro;
+  for(let i=0;i<tentativas;i++){
+    const controller = new AbortController();
+    const timeoutId = setTimeout(()=>controller.abort(), 15000);
+    try{
+      const res = await fetch(cfg.url, {
+        method:'POST',
+        headers:{'Content-Type':'text/plain;charset=utf-8'}, // evita preflight CORS no Apps Script
+        body: JSON.stringify({ ...payload, secret: cfg.secret }),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      const json = await res.json();
+      if(!json.ok) throw new Error(json.error || 'erro desconhecido');
+      return json;
+    }catch(err){
+      clearTimeout(timeoutId);
+      ultimoErro = err.name==='AbortError' ? new Error('Tempo esgotado ao salvar — a planilha demorou demais pra responder.') : err;
+      if(i < tentativas-1) await new Promise(r=>setTimeout(r, 1200));
+    }
+  }
+  throw ultimoErro;
 }
 async function apiGet(){
   const cfg = getConfig();
