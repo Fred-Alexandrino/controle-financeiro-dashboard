@@ -424,6 +424,7 @@ footer a{color:var(--cover);}
               <th data-kv="descricao">Descrição</th>
               <th data-kv="categoria">Categoria</th>
               <th data-kv="responsavel">Quem</th>
+              <th data-kv="formaPagamento">Pagamento</th>
               <th class="th-acao"></th>
             </tr>
           </thead>
@@ -554,6 +555,13 @@ footer a{color:var(--cover);}
         <div class="form-row">
           <label>Quem</label>
           <select id="expResponsavelVar"><option>Casal</option><option>Fred</option><option>Janyne</option></select>
+        </div>
+        <div class="form-row">
+          <label>Forma de pagamento</label>
+          <select id="expFormaPagamentoVar">
+            <option value="Pix/Débito/Dinheiro">Pix / Débito / Dinheiro (conta no mês do gasto)</option>
+            <option value="Cartão de crédito">Cartão de crédito (conta na fatura do mês seguinte)</option>
+          </select>
         </div>
         <div class="form-row">
           <label>Valor</label>
@@ -943,8 +951,10 @@ function compraNaFaturaDoMes(dataStr, mesLabel){
 function extrasPessoaMes(pessoa, mesLabel){
   const compras = TX.filter(t=>t.tipoCompra==='pontual' && t.cartao===pessoa && compraNaFaturaDoMes(t.data, mesLabel))
     .reduce((s,t)=>s+t.valorParcela, 0);
-  const recorrentes = DATA.gastosVariaveis.filter(r=>r.responsavel===pessoa && dataNoMes(r.data, mesLabel))
-    .reduce((s,r)=>s+r.valor, 0);
+  const recorrentes = DATA.gastosVariaveis.filter(r=>{
+    if(r.responsavel!==pessoa) return false;
+    return r.formaPagamento==='Cartão de crédito' ? compraNaFaturaDoMes(r.data, mesLabel) : dataNoMes(r.data, mesLabel);
+  }).reduce((s,r)=>s+r.valor, 0);
   return compras + recorrentes;
 }
 
@@ -1118,6 +1128,7 @@ function renderGastosVariaveis(){
       <td>${r.descricao}</td>
       <td><span class="cat-chip" style="background:${catColor(r.categoria)}">${r.categoria}</span></td>
       <td>${r.responsavel}</td>
+      <td><span class="cat-chip" style="background:${r.formaPagamento==='Cartão de crédito' ? '#5B7B93' : '#6E8272'}">${r.formaPagamento==='Cartão de crédito' ? 'Cartão' : 'Pix/Débito'}</span></td>
       <td><button type="button" class="btn-del-row" data-edit-idx-var="${idx}" title="Editar">✎</button> <button type="button" class="btn-del-row" data-del-idx="${idx}" title="Excluir">🗑</button></td>
     </tr>`;
   }).join('');
@@ -1507,6 +1518,7 @@ function abrirEdicaoVariavel(idx){
   document.getElementById('expDescricaoVar').value = item.descricao;
   document.getElementById('expCategoriaVar').value = item.categoria;
   document.getElementById('expResponsavelVar').value = item.responsavel;
+  document.getElementById('expFormaPagamentoVar').value = item.formaPagamento || 'Pix/Débito/Dinheiro';
   document.getElementById('expValorVar').value = item.valor;
 
   openModal('modalExpense');
@@ -1561,7 +1573,8 @@ async function onExpenseSubmit(e){
       action:'addGastoVariavel',
       data: document.getElementById('expDataVar').value || new Date().toISOString().slice(0,10),
       descricao, categoria: document.getElementById('expCategoriaVar').value,
-      responsavel: document.getElementById('expResponsavelVar').value, valor
+      responsavel: document.getElementById('expResponsavelVar').value,
+      formaPagamento: document.getElementById('expFormaPagamentoVar').value, valor
     };
   }
 
@@ -1581,7 +1594,7 @@ async function onExpenseSubmit(e){
     DATA.gastosFixos.push({despesa:payload.despesa, valor:payload.valor});
     DATA.gastosFixosTotal += payload.valor;
   } else {
-    DATA.gastosVariaveis.push({data:payload.data, descricao:payload.descricao, categoria:payload.categoria, responsavel:payload.responsavel, valor:payload.valor});
+    DATA.gastosVariaveis.push({data:payload.data, descricao:payload.descricao, categoria:payload.categoria, responsavel:payload.responsavel, formaPagamento:payload.formaPagamento, valor:payload.valor});
   }
 
   // se estava editando um lançamento, remove a versão original agora que a nova já foi criada
