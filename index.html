@@ -145,6 +145,11 @@ body{
 .kpi-clicavel{cursor:pointer; transition:box-shadow .15s ease, transform .1s ease;}
 .kpi-clicavel:hover{box-shadow:0 4px 14px rgba(30,58,47,.15);}
 .kpi-clicavel:active{transform:scale(.98);}
+.th-acao{width:32px;}
+.btn-del-row{
+  background:none; border:none; color:var(--ink-soft); cursor:pointer; font-size:15px; padding:2px 6px; border-radius:5px;
+}
+.btn-del-row:hover{color:var(--rust); background:var(--rust-bg);}
 
 /* PANELS */
 .panel{
@@ -368,6 +373,7 @@ footer a{color:var(--cover);}
               <th data-kc="estabelecimento">Estabelecimento</th>
               <th data-kc="categoria">Categoria</th>
               <th data-kc="cartao">Cartão</th>
+              <th class="th-acao"></th>
             </tr>
           </thead>
           <tbody id="txComprasBody"></tbody>
@@ -392,6 +398,7 @@ footer a{color:var(--cover);}
               <th data-k="categoria">Categoria</th>
               <th data-k="cartao">Cartão</th>
               <th data-k="parcelasRestantes">Parc. rest.</th>
+              <th class="th-acao"></th>
             </tr>
           </thead>
           <tbody id="txBody"></tbody>
@@ -417,6 +424,7 @@ footer a{color:var(--cover);}
               <th data-kv="descricao">Descrição</th>
               <th data-kv="categoria">Categoria</th>
               <th data-kv="responsavel">Quem</th>
+              <th class="th-acao"></th>
             </tr>
           </thead>
           <tbody id="txVarBody"></tbody>
@@ -808,8 +816,8 @@ let state = { mes: DATA.projecaoMensal[0].mes, cardFiltro:'todos', search:'', so
 /* ================= TRANSACTIONS (flatten) ================= */
 function buildTransactions(){
   const rows = [];
-  DATA.cartaoFred.forEach(r=>rows.push({cartao:'Fred', estabelecimento:r[0], parcelasRestantes:r[1], valorParcela:r[2], valorAberto:r[3], categoria:r[4], data:r[5]||'2026-07-01', totalParcelas:r[6]||null}));
-  DATA.cartaoJanyne.forEach(r=>rows.push({cartao:'Janyne', estabelecimento:r[0], parcelasRestantes:r[1], valorParcela:r[2], valorAberto:r[3], categoria:r[4], data:r[5]||'2026-07-01', totalParcelas:r[6]||null}));
+  DATA.cartaoFred.forEach((r,i)=>rows.push({cartao:'Fred', estabelecimento:r[0], parcelasRestantes:r[1], valorParcela:r[2], valorAberto:r[3], categoria:r[4], data:r[5]||'2026-07-01', totalParcelas:r[6]||null, _srcIdx:i}));
+  DATA.cartaoJanyne.forEach((r,i)=>rows.push({cartao:'Janyne', estabelecimento:r[0], parcelasRestantes:r[1], valorParcela:r[2], valorAberto:r[3], categoria:r[4], data:r[5]||'2026-07-01', totalParcelas:r[6]||null, _srcIdx:i}));
   rows.forEach(r=>{ r.tipoCompra = r.totalParcelas===1 ? 'pontual' : 'parcelada'; });
   return rows;
 }
@@ -1033,7 +1041,9 @@ function renderTable(){
       <td><span class="cat-chip" style="background:${catColor(t.categoria)}">${t.categoria}</span></td>
       <td>${t.cartao}</td>
       <td class="mono">${t.parcelasRestantes}</td>
+      <td><button type="button" class="btn-del-row" data-del-cartao="${t.cartao}" data-del-idx="${t._srcIdx}" title="Excluir">🗑</button></td>
     </tr>`).join('');
+  wireDeleteButtons('#txBody', 'cartao');
 }
 
 function renderTableCompras(){
@@ -1055,7 +1065,9 @@ function renderTableCompras(){
       <td>${t.estabelecimento}</td>
       <td><span class="cat-chip" style="background:${catColor(t.categoria)}">${t.categoria}</span></td>
       <td>${t.cartao}</td>
+      <td><button type="button" class="btn-del-row" data-del-cartao="${t.cartao}" data-del-idx="${t._srcIdx}" title="Excluir">🗑</button></td>
     </tr>`).join('');
+  wireDeleteButtons('#txComprasBody', 'cartao');
 }
 
 function renderGastosVariaveis(){
@@ -1070,14 +1082,63 @@ function renderGastosVariaveis(){
     return 0;
   });
   document.getElementById('tableCountVar').textContent = `${rows.length} lançamento(s)`;
-  document.getElementById('txVarBody').innerHTML = rows.map(r=>`
-    <tr>
+  document.getElementById('txVarBody').innerHTML = rows.map(r=>{
+    const idx = DATA.gastosVariaveis.indexOf(r);
+    return `<tr>
       <td class="mono">${formatDataBR(r.data)}</td>
       <td class="amount">${fmt.format(r.valor)}</td>
       <td>${r.descricao}</td>
       <td><span class="cat-chip" style="background:${catColor(r.categoria)}">${r.categoria}</span></td>
       <td>${r.responsavel}</td>
-    </tr>`).join('');
+      <td><button type="button" class="btn-del-row" data-del-idx="${idx}" title="Excluir">🗑</button></td>
+    </tr>`;
+  }).join('');
+  wireDeleteButtons('#txVarBody', 'variavel');
+}
+
+function wireDeleteButtons(containerSel, tipo){
+  document.querySelectorAll(containerSel+' [data-del-idx]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      if(tipo==='cartao') excluirTransacaoCartao(btn.dataset.delCartao, parseInt(btn.dataset.delIdx,10));
+      else excluirGastoVariavel(parseInt(btn.dataset.delIdx,10));
+    });
+  });
+}
+
+async function excluirTransacaoCartao(cartao, idx){
+  const alvo = cartao==='Fred' ? DATA.cartaoFred : DATA.cartaoJanyne;
+  const item = alvo[idx];
+  if(!item) return;
+  if(!confirm(`Excluir "${item[0]}" (${fmt.format(item[2])})?`)) return;
+  const [estabelecimento, , valorParcela, , categoria, data] = item;
+  alvo.splice(idx, 1);
+  TX = buildTransactions();
+  fullRender();
+  if(isConfigured()){
+    try{
+      await apiPost({ action:'deleteCartaoTransacao', cartao, estabelecimento, valorParcela, categoria, data });
+      showToast('Excluído da planilha ✓');
+      scheduleLiveResync();
+    }catch(err){ showToast('Excluído aqui, mas falhou ao remover da planilha: ' + err.message, true); }
+  } else {
+    showToast('Excluído nesta tela. Configure ⚙ para remover também da planilha.');
+  }
+}
+
+async function excluirGastoVariavel(idx){
+  const item = DATA.gastosVariaveis[idx];
+  if(!item) return;
+  if(!confirm(`Excluir "${item.descricao}" (${fmt.format(item.valor)})?`)) return;
+  DATA.gastosVariaveis.splice(idx, 1);
+  fullRender();
+  if(isConfigured()){
+    try{
+      await apiPost({ action:'deleteGastoVariavel', data:item.data, descricao:item.descricao, valor:item.valor, responsavel:item.responsavel });
+      showToast('Excluído da planilha ✓');
+    }catch(err){ showToast('Excluído aqui, mas falhou ao remover da planilha: ' + err.message, true); }
+  } else {
+    showToast('Excluído nesta tela. Configure ⚙ para remover também da planilha.');
+  }
 }
 
 function renderLiveTags(){
