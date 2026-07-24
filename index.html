@@ -1138,7 +1138,7 @@ function extrasPessoaMes(pessoa, mesLabel){
   return recorrentes;
 }
 
-function kpiCardEdit(label, value, cartao, mes, ajustado){
+function kpiCardEdit(label, value, cartao, mes, ajustado, valorCalculado){
   const ativo = state.cardFiltro === cartao;
   return `<div class="kpi-card kpi-clicavel ${ajustado?'':''}" style="${ajustado?'border-left-color:#5B7B93;':''}${ativo?'background:var(--green-bg); border-left-color:var(--cover);':''}" data-filtro-pessoa="${cartao}">
     <div class="label" style="display:flex; justify-content:space-between; align-items:center;">
@@ -1146,12 +1146,15 @@ function kpiCardEdit(label, value, cartao, mes, ajustado){
       <button type="button" class="icon-btn" style="width:22px;height:22px;border-color:var(--line);color:var(--ink-soft);" data-edit-cartao="${cartao}" data-edit-mes="${mes}" title="Ajustar valor real do cartão (banco)">✎</button>
     </div>
     <div class="value">${value}</div>
+    ${ajustado ? `<div class="sub" style="color:#5B7B93;">calculado agora: ${fmt.format(valorCalculado)}</div>` : ''}
   </div>`;
 }
 
 function renderKpiMes(){
   const row = DATA.projecaoMensal.find(r=>r.mes===state.mes) || DATA.projecaoMensal[0];
   const eff = rowEfetiva(row);
+  const calculadoFred = faturaCartaoMes('Fred', state.mes);
+  const calculadoJanyne = faturaCartaoMes('Janyne', state.mes);
   const extrasFred = extrasPessoaMes('Fred', state.mes);
   const extrasJanyne = extrasPessoaMes('Janyne', state.mes);
   const gastosFred = eff.fred + extrasFred;
@@ -1160,8 +1163,8 @@ function renderKpiMes(){
   document.getElementById('mesLabelTitle').textContent = state.mes;
   document.getElementById('kpiMes').innerHTML = [
     kpiCard('Gastos fixos', fmt.format(eff.fixos)),
-    kpiCardEdit('Gastos Fred', fmt.format(gastosFred), 'Fred', state.mes, eff.fredAjustado),
-    kpiCardEdit('Gastos Janyne', fmt.format(gastosJanyne), 'Janyne', state.mes, eff.janyneAjustado),
+    kpiCardEdit('Gastos Fred', fmt.format(gastosFred), 'Fred', state.mes, eff.fredAjustado, calculadoFred+extrasFred),
+    kpiCardEdit('Gastos Janyne', fmt.format(gastosJanyne), 'Janyne', state.mes, eff.janyneAjustado, calculadoJanyne+extrasJanyne),
     kpiCard('Total comprometido', fmt.format(eff.fixos + gastosFred + gastosJanyne)),
     kpiCard(sobra>=0 ? 'Sobra do mês' : 'Falta no mês', fmt.format(Math.abs(sobra)), {neg: sobra<0})
   ].join('');
@@ -2177,7 +2180,14 @@ async function tryFetchTudoViaAppsScript(){
   return json;
 }
 
+let fetchLiveEmAndamento = null;
 async function fetchLive(){
+  if(fetchLiveEmAndamento) return fetchLiveEmAndamento; // ja tem uma busca rodando, reaproveita ela em vez de rodar outra em paralelo
+  fetchLiveEmAndamento = fetchLiveInner().finally(()=>{ fetchLiveEmAndamento = null; });
+  return fetchLiveEmAndamento;
+}
+
+async function fetchLiveInner(){
   document.getElementById('liveText').textContent = 'atualizando…';
 
   if(isConfigured()){
