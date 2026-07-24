@@ -864,13 +864,7 @@ SNAPSHOT.cardsSummary.push({nome:'Total', fatura:SNAPSHOT.cardsSummary[0].fatura
   totalPagar:SNAPSHOT.cardsSummary[0].totalPagar+SNAPSHOT.cardsSummary[1].totalPagar,
   emAberto:SNAPSHOT.cardsSummary[0].emAberto+SNAPSHOT.cardsSummary[1].emAberto});
 SNAPSHOT.gastosFixosTotal = SNAPSHOT.gastosFixos.reduce((s,x)=>s+x.valor,0) + SNAPSHOT.cardsSummary[0].fatura + SNAPSHOT.cardsSummary[1].fatura;
-SNAPSHOT.faturaAjustes = {
-  Fred: {},
-  Janyne: {
-    'set.-26': 4617.98, 'out.-26': 4125.13, 'nov.-26': 1973.65, 'dez.-26': 1569.26,
-    'jan.-27': 1203.09, 'fev.-27': 1151.27, 'mar.-27': 734.37, 'abr.-27': 712.70, 'mai.-27': 460.81
-  }
-};
+SNAPSHOT.faturaAjustes = { Fred: {}, Janyne: {} };
 SNAPSHOT.gastosFixosAjustes = {}; // { 'set.-26': { 'Enel': 340.00 }, ... }
 
 let DATA = JSON.parse(JSON.stringify(SNAPSHOT));
