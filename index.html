@@ -157,6 +157,13 @@ body{
 }
 .btn-scan:hover{background:var(--green-bg);}
 .btn-scan:disabled{opacity:.6; cursor:wait;}
+body.carregando-dados #kpiGeral .value,
+body.carregando-dados #kpiMes .value{
+  color:transparent; position:relative; border-radius:4px;
+  background:linear-gradient(90deg, var(--line) 25%, #ece4cc 50%, var(--line) 75%);
+  background-size:200% 100%; animation:pulse-carregando 1.3s ease-in-out infinite;
+}
+@keyframes pulse-carregando{ 0%{background-position:200% 0;} 100%{background-position:-200% 0;} }
 
 /* PANELS */
 .panel{
@@ -1987,32 +1994,10 @@ async function onReservaSubmit(e){
 }
 
 async function fetchReservaLedger(){
-  if(!isConfigured()) return;
-  try{
-    const json = await apiGetComRetry();
-    if(json && json.ok){
-      DATA.reservaMovimentos = json.reservaMovimentos || [];
-      if(json.faturaAjustes){
-        DATA.faturaAjustes = { Fred:{...json.faturaAjustes.Fred}, Janyne:{...json.faturaAjustes.Janyne} };
-        liveStatus.ajustes = 'live';
-      }
-      if(json.gastosFixosAjustes){
-        DATA.gastosFixosAjustes = json.gastosFixosAjustes;
-      }
-      if(json.gastosVariaveis){
-        DATA.gastosVariaveis = json.gastosVariaveis;
-        liveStatus.variaveis = 'live';
-      }
-      mesclarPendentesVariaveis();
-      liveStatus.reserva = 'live';
-      renderGoals();
-      renderKpiMes();
-      renderChartProjecao();
-      renderFixos();
-      renderGastosVariaveis();
-      renderLiveTags();
-    }
-  }catch(err){ liveStatus.reserva = 'cached'; }
+  // mantido por compatibilidade: agora só delega pro fetchLive, que já traz
+  // reserva/ajustes/variaveis na mesma resposta (evita duas buscas paralelas
+  // terminando em momentos diferentes e fazendo os valores "piscarem")
+  return fetchLive();
 }
 
 async function fetchGastosVariaveis(){
@@ -2183,7 +2168,7 @@ async function tryFetchCartao(sheetName){
 function scheduleLiveResync(){
   // da tempo da planilha recalcular as formulas (Dashboard/Painel) antes de buscar de novo
   showToast('Sincronizando com a planilha…');
-  setTimeout(()=>{ fetchLive(); fetchReservaLedger(); }, 2200);
+  setTimeout(()=>{ fetchLive(); }, 2200);
 }
 
 async function tryFetchTudoViaAppsScript(){
@@ -2229,6 +2214,20 @@ async function fetchLive(){
         DATA.cartaoJanyne = json.cartaoJanyne || [];
         liveStatus.cartoes='live';
       } else liveStatus.cartoes='cached';
+
+      // tudo isso vem na MESMA resposta — não faz mais uma segunda chamada separada
+      DATA.reservaMovimentos = json.reservaMovimentos || [];
+      if(json.faturaAjustes){
+        DATA.faturaAjustes = { Fred:{...json.faturaAjustes.Fred}, Janyne:{...json.faturaAjustes.Janyne} };
+        liveStatus.ajustes = 'live';
+      }
+      if(json.gastosFixosAjustes) DATA.gastosFixosAjustes = json.gastosFixosAjustes;
+      if(json.gastosVariaveis){
+        DATA.gastosVariaveis = json.gastosVariaveis;
+        liveStatus.variaveis = 'live';
+      }
+      mesclarPendentesVariaveis();
+      liveStatus.reserva = 'live';
     } else {
       liveStatus.dashboard='cached'; liveStatus.painel='cached'; liveStatus.fixos='cached'; liveStatus.cartoes='cached';
     }
@@ -2432,14 +2431,16 @@ initControls();
 initMoneyInputs();
 initDragReorder();
 initCollapsible();
+document.body.classList.add('carregando-dados'); // esconde os numeros da planilha antiga ate a 1a sincronizacao real
 fullRender();
 
 showToast('Buscando dados mais recentes da planilha… (pode levar alguns segundos na primeira vez)');
-Promise.allSettled([fetchLive(), fetchReservaLedger()]).then(()=>{
+fetchLive().then(()=>{
+  document.body.classList.remove('carregando-dados');
   const allLive = Object.values(liveStatus).every(v=>v==='live');
   showToast(allLive ? 'Dados atualizados ✓' : 'Carregado (alguns blocos usando dados salvos — toque em "atualizar agora" pra tentar de novo)');
 });
-setInterval(()=>{ fetchLive(); fetchReservaLedger(); }, 60000);
+setInterval(()=>{ fetchLive(); }, 60000);
 
 if('serviceWorker' in navigator){
   window.addEventListener('load', ()=>{
